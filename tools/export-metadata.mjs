@@ -13,7 +13,7 @@ const catalog = await buildCatalog(pack);
 const tracks = {};
 const paths = [...new Set(catalog.tracks.filter(t => t.available).map(t => t.path.toLowerCase()))];
 for (const [index, path] of paths.entries()) {
-  const { ogg, reason, ...metadata } = parseScd(await pack.read(path));
+  const { ogg, hca, reason, ...metadata } = parseScd(await pack.read(path));
   tracks[path] = { ...metadata, coverTextureId: previous[path]?.coverTextureId ?? null, coverTexturePath: previous[path]?.coverTexturePath ?? null };
   if ((index + 1) % 100 === 0) console.log(`${index + 1}/${paths.length}`);
 }

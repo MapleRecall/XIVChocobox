@@ -1,4 +1,5 @@
 import { ascii, requireRange, utf8, view } from './binary.js';
+import { parseHca } from './hca/parse.js';
 
 // Format constant used by the SCD v3 Ogg obfuscation scheme.
 const XOR = Uint8Array.from([
@@ -63,7 +64,8 @@ export function parseScd(bytes) {
     extra += chunkSize;
   }
   const base = { codec: codec === 6 ? 'OGG' : codec === 26 ? 'HCA' : `0x${codec.toString(16)}`, channels, sampleRate, marks, supported: codec === 6 };
-  if (codec !== 6) return { ...base, loop: null, reason: codec === 26 ? '此曲目使用 HCA 编码，第一版暂不支持播放。' : `暂不支持 ${base.codec} 编码。` };
+  if (codec === 26) return parseHcaScd(bytes, { ...base, size, streamAt, at, extra, markLoop });
+  if (codec !== 6) return { ...base, loop: null, reason: `暂不支持 ${base.codec} 编码。` };
   requireRange(bytes, extra, 32);
   const version = bytes[extra], wrapperSize = bytes[extra + 1], key = bytes[extra + 2];
   const seekSize = d.getUint32(extra + 16, true), vorbisSize = d.getUint32(extra + 20, true), vorbisAt = extra + wrapperSize + seekSize;
@@ -84,6 +86,39 @@ export function parseScd(bytes) {
   loop = normalizeLoop(loop, info.totalSamples, info.sampleRate);
   if (!loop) loopSource = null;
   return { ...base, sampleRate: info.sampleRate, channels: info.channels, ogg, totalSamples: info.totalSamples, duration: info.totalSamples / info.sampleRate, loop, loopSource: loop ? loopSource : null, marks: marks.filter(m => m <= info.totalSamples) };
+}
+
+function parseHcaScd(bytes, { size, streamAt, at, extra, markLoop, ...base }) {
+  // An HCA stream has a small SCD-specific header before the regular HCA
+  // header. Scan instead of assuming its size so newer game builds remain
+  // readable if that wrapper grows.
+  let hcaAt = -1;
+  for (let candidate = extra; candidate + 4 <= streamAt; candidate++) {
+    if (bytes[candidate] === 0x48 && bytes[candidate + 1] === 0x43 && bytes[candidate + 2] === 0x41 && bytes[candidate + 3] === 0) { hcaAt = candidate; break; }
+  }
+  if (hcaAt < 0) throw new Error('HCA 音频头未找到。');
+  const hcaBytes = bytes.slice(hcaAt, streamAt + size);
+  const header = parseHca(hcaBytes);
+  if (header.dataOffset < 1 || header.dataOffset > hcaBytes.length || hcaAt + header.dataOffset !== streamAt) throw new Error('HCA 数据偏移与 SCD 不一致。');
+  // FF14 stores HCA blocks with the same 256-byte SCD XOR table used by its
+  // OGG wrapper. The HCA header remains clear; only encoded blocks are masked.
+  for (let i = header.dataOffset; i < hcaBytes.length; i++) hcaBytes[i] ^= XOR[((size & 63) + (i - header.dataOffset) + header.dataOffset) & 255] ^ (size & 127);
+  const rawSamples = header.blockCount * 1024;
+  const totalSamples = Math.max(0, rawSamples - header.muteHeader - header.muteFooter);
+  let loop = null;
+  if (Number.isInteger(header.loopStart) && Number.isInteger(header.loopEnd)) {
+    const loopStartDelay = header.loopCount || 0;
+    const loopEndPadding = header.loopR1 ?? header.muteFooter;
+    const start = header.loopStart * 1024 + loopStartDelay - header.muteHeader;
+    const end = (header.loopEnd + 1) * 1024 - loopEndPadding - header.muteHeader;
+    if (start >= 0 && end > start && end <= totalSamples) loop = { start, end };
+  }
+  if (!loop && markLoop) loop = markLoop;
+  if (loop && !(loop.start >= 0 && loop.end > loop.start && loop.end <= totalSamples)) loop = null;
+  loop = normalizeLoop(loop, totalSamples, header.samplingRate);
+  const loopSource = loop ? (header.loopStart !== undefined ? 'HCA' : 'MARK') : null;
+  const supported = header.ciphType === 0 || header.ciphType === 1;
+  return { ...base, channels: header.channelCount, sampleRate: header.samplingRate, totalSamples, duration: totalSamples / header.samplingRate, loop, loopSource, hca: hcaBytes, hcaHeader: header, marks: base.marks.filter(mark => mark <= totalSamples), supported, reason: supported ? undefined : `此 HCA 使用加密类型 ${header.ciphType}，当前版本没有可用密钥。` };
 }
 
 export function parseOgg(bytes) {

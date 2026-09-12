@@ -1,14 +1,17 @@
 import { Player } from './lib/player.js';
 import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js';
+import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
 const worker = new Worker(new URL('./catalog-worker.js', import.meta.url), { type: 'module' });
 const pending = new Map();
 let requestId = 0, catalog = [], filter = 'orchestrion', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
-let libraryLabel = '', metadataScanId = 0, trackRows = new Map();
+let libraryLabel = '', metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
 let metadataCache = readMetadataCache(), cacheWriteTimer = null;
+const POSITION_CACHE_KEY = 'xiv-player-playback-positions-v1';
+let positionCache = readPositionCache(), positionWriteTimer = null;
 let lastVariant = null, filteredRenderTimer = null;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
   .then(response => { if (!response.ok) throw new Error('Metadata unavailable'); return response.json(); })
@@ -55,6 +58,24 @@ function readMetadataCache() {
     const value = JSON.parse(localStorage.getItem(METADATA_CACHE_KEY) || '{}');
     return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   } catch { return {}; }
+}
+function readPositionCache() {
+  try {
+    const value = JSON.parse(localStorage.getItem(POSITION_CACHE_KEY) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch { return {}; }
+}
+function persistPositionCache() {
+  if (positionWriteTimer) return;
+  positionWriteTimer = setTimeout(() => {
+    positionWriteTimer = null;
+    try { localStorage.setItem(POSITION_CACHE_KEY, JSON.stringify(positionCache)); } catch { /* Storage can be disabled or full. */ }
+  }, 400);
+}
+function savePlaybackPosition() {
+  if (!selected || !info || loading || !Number.isFinite(player.state.position) || player.state.position <= 0) return;
+  positionCache[selected.path.toLowerCase()] = { position: player.state.position, pass: player.state.pass };
+  persistPositionCache();
 }
 function persistMetadataCache() {
   if (cacheWriteTimer) return;
@@ -167,20 +188,27 @@ function renderTracks() {
   $('tracks').replaceChildren(fragment);
   $('track-count').textContent = catalog.length ? `${filtered.length} 首` : '尚未载入';
 }
+async function openDirectory(directory) {
+  opening = true; $('open-directory').disabled = true;
+  metadataScanId++;
+  selection++; player.clear(); selected = null; info = null; duration = 0; loading = false;
+  resetTrack(); renderTracks();
+  const result = await request('open', { directory }, message => status('library-status', message));
+  presetMetadata = await presetReady;
+  catalog = result.tracks.map(track => ({ ...track, title: cleanTitle(track.title) })); hydrateMetadataCache(); $('search').disabled = false;
+  libraryLabel = `${directory.name} · ${result.repositories.join('、')}`;
+  $('open-directory').textContent = '重新选择目录';
+  status('library-status', '');
+  startMetadataScan(filter);
+}
 async function chooseDirectory() {
   if (opening) return;
   try {
-    const directory = await window.showDirectoryPicker({ mode: 'read', id: 'xiv-sqpack' });
-    opening = true; $('open-directory').disabled = true;
-    metadataScanId++;
-    selection++; player.clear(); selected = null; info = null; duration = 0; loading = false;
-    resetTrack(); renderTracks();
-    const result = await request('open', { directory }, message => status('library-status', message));
-    presetMetadata = await presetReady;
-    catalog = result.tracks.map(track => ({ ...track, title: cleanTitle(track.title) })); hydrateMetadataCache(); $('search').disabled = false;
-    libraryLabel = `${directory.name} · ${result.repositories.join('、')}`;
-    status('library-status', '');
-    startMetadataScan(filter);
+    let directory = lastDirectoryHandle;
+    if (!directory || await directoryPermission(directory, true) !== 'granted') directory = await window.showDirectoryPicker({ mode: 'read', id: 'xiv-sqpack' });
+    lastDirectoryHandle = directory;
+    try { await saveDirectoryHandle(directory); } catch { /* IndexedDB can be unavailable in private browsing. */ }
+    await openDirectory(directory);
   } catch (error) {
     if (error.name !== 'AbortError') status('library-status', error.message, true);
   } finally { opening = false; $('open-directory').disabled = !window.showDirectoryPicker; renderTracks(); }
@@ -227,7 +255,7 @@ async function loadSelected(track, current) {
   if (!parsed.supported) { loading = false; $('codec').textContent = parsed.codec; $('loop-status').textContent = '此资源暂不能播放'; status('player-status', parsed.reason, true); renderTracks(); return; }
   const loaded = await player.load(parsed, () => current === selection);
   if (!loaded || current !== selection) return;
-  info = parsed; delete info.ogg; duration = loaded.duration; loading = false; syncLoading();
+  info = parsed; delete info.ogg; delete info.hca; delete info.pcmChannels; delete info.hcaHeader; duration = loaded.duration; loading = false; syncLoading();
   $('codec').textContent = `${parsed.codec} · ${parsed.channels} 声道`;
   $('seek').max = String(duration); $('seek').disabled = false; $('play').disabled = false; $('restart').disabled = false;
   renderChannels(info.channels);
@@ -246,7 +274,10 @@ async function loadSelected(track, current) {
   for (const [key, value] of metadata) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; fragment.append(dt, dd); }
   $('metadata').replaceChildren(fragment); $('track-details').hidden = false;
   status('player-status', autoVariant ? '默认播放变体 1；点击“切换变体”会在下一个节点切换，并播放过渡音。' : info.loop ? '金色区域为原始循环区间。拖动可跳转；从头播放会重新计数。' : '这首曲目没有有效循环区间，将完整播放一次。');
-  status('player-status', ''); applySettings(); renderState(player.state); await player.play();
+  status('player-status', ''); applySettings();
+  const saved = positionCache[track.path.toLowerCase()];
+  if (saved && Number.isFinite(saved.position) && saved.position > 0 && saved.position < duration - 0.25) player.seek(saved.position, Number.isInteger(saved.pass) ? saved.pass : 1);
+  renderState(player.state); await player.play();
 }
 function channelName(index, count) {
   const names = count === 6 ? ['FL（变体 1 · 左）', 'FR（变体 2 · 左）', 'FC（变体 1 · 右）', 'LFE（过渡 · 左）', 'SL（变体 2 · 右）', 'SR（过渡 · 右）'] : count === 2 ? ['L 左', 'R 右'] : Array.from({ length: count }, (_, i) => `Ch ${i + 1}`);
@@ -330,6 +361,7 @@ function renderState(state) {
   if (!info || !info.loop) $('loop-status').textContent = '';
   else if (player.limit === 1) $('loop-status').textContent = '循环关闭';
   updateVariantControls(state);
+  savePlaybackPosition();
 }
 function configureLoop(mode, limit) {
   if (!['off', 'finite', 'infinite'].includes(mode) || !Number.isInteger(limit) || limit < 1 || limit > 999) throw new Error('循环次数必须是 1～999 的整数。');
@@ -377,6 +409,22 @@ try {
 } catch { /* Invalid preferences leave defaults intact. */ }
 if (!window.showDirectoryPicker || !window.isSecureContext) { $('open-directory').disabled = true; status('library-status', '请在新版 Chrome / Edge 中通过 HTTPS 或 localhost 打开此页面。', true); }
 renderTracks();
+async function restoreDirectory() {
+  if (!window.showDirectoryPicker || !window.isSecureContext) return;
+  try {
+    const handle = await loadDirectoryHandle();
+    if (!handle) return;
+    lastDirectoryHandle = handle;
+    if (await directoryPermission(handle) === 'granted') {
+      await openDirectory(handle);
+    } else {
+      $('open-directory').textContent = '恢复上次目录';
+      status('library-status', `已记住上次目录“${handle.name}”，点击按钮恢复访问。`);
+    }
+  } catch { /* A stale handle is harmless; the next explicit directory choice replaces it. */ }
+  finally { opening = false; $('open-directory').disabled = !window.showDirectoryPicker; renderTracks(); }
+}
+void restoreDirectory();
 
 if (document.modelContext?.registerTool) {
   const lifecycle = new AbortController();

@@ -5,13 +5,14 @@ class OrchestrionProcessor extends AudioWorkletProcessor {
     super();
     this.channels = []; this.cursor = new LoopCursor(); this.framesSinceUpdate = 0; this.trackId = 0;
     this.channelSelection = null; this.selectionMode = 'mono'; this.disposed = false;
-    this.variantMode = false; this.variantGroups = []; this.variantMarks = []; this.variantLoop = null; this.variantLength = 0;
+    this.variantMode = false; this.variantGroups = []; this.variantMarks = []; this.variantLoop = null; this.variantLength = 0; this.fadeOutFrames = 0;
     this.activeVariant = 0; this.pendingVariant = null; this.pendingNode = null; this.transition = null; this.variantGeneration = 0; this.lastPosition = 0;
     this.port.onmessage = ({ data }) => {
       try {
         if (data.type === 'load') {
           this.channels = data.channels; this.trackId = data.trackId; this.channelSelection = null; this.selectionMode = 'mono';
           this.cursor = new LoopCursor(this.channels[0].length, data.loop, data.limit ?? Infinity);
+          this.fadeOutFrames = Math.max(0, Math.min(Math.round((data.fadeOutSeconds ?? 0) * sampleRate), this.cursor.loop ? this.cursor.loop.end - this.cursor.loop.start : 0));
           this.configureVariant(data.variant);
         } else if (data.type === 'dispose') {
           this.channels = []; this.cursor = new LoopCursor(); this.channelSelection = null; this.selectionMode = 'mono'; this.configureVariant(null); this.disposed = true;
@@ -20,7 +21,7 @@ class OrchestrionProcessor extends AudioWorkletProcessor {
           this.channels = []; this.cursor = new LoopCursor(); this.trackId = data.trackId; this.channelSelection = null; this.selectionMode = 'mono'; this.configureVariant(null);
         } else if (data.type === 'play') this.cursor.play();
         else if (data.type === 'pause') this.cursor.pause();
-        else if (data.type === 'seek') { this.cursor.seek(data.position); this.resetVariantTiming(true); }
+        else if (data.type === 'seek') { this.cursor.seek(data.position); if (Number.isInteger(data.pass) && data.pass >= 1) this.cursor.pass = data.pass; this.resetVariantTiming(true); }
         else if (data.type === 'restart') { this.cursor.reset(); this.resetVariantTiming(true); this.cursor.play(); }
         else if (data.type === 'limit') this.cursor.setLimit(data.limit ?? Infinity);
         else if (data.type === 'channel') { this.disableVariant(); this.channelSelection = Number.isInteger(data.channel) && data.channel >= 0 ? [data.channel] : null; this.selectionMode = 'mono'; }
@@ -65,6 +66,12 @@ class OrchestrionProcessor extends AudioWorkletProcessor {
     if (target === this.activeVariant) { this.pendingVariant = null; this.pendingNode = null; return; }
     this.pendingVariant = target; this.pendingNode = this.nextVariantNode(this.cursor.position, this.variantGeneration);
   }
+  finalPassGain(position) {
+    if (!this.fadeOutFrames || !this.cursor.loop || this.cursor.limit === Infinity || this.cursor.pass < this.cursor.limit || this.cursor.loopExited) return 1;
+    const start = Math.max(this.cursor.loop.start, this.cursor.loop.end - this.fadeOutFrames);
+    if (position < start || position >= this.cursor.loop.end) return 1;
+    return Math.max(0, Math.min(1, (this.cursor.loop.end - position) / Math.max(1, this.cursor.loop.end - start)));
+  }
   updateVariantFrame(position) {
     if (!this.variantMode) return false;
     if (position < this.lastPosition) this.variantGeneration++;
@@ -108,6 +115,8 @@ class OrchestrionProcessor extends AudioWorkletProcessor {
       } else {
         for (let channel = 0; channel < output.length; channel++) output[channel][i] = this.channels[channel]?.[this.cursor.position] ?? 0;
       }
+      const fade = this.finalPassGain(position);
+      if (fade !== 1) for (let channel = 0; channel < output.length; channel++) output[channel][i] *= fade;
       this.cursor.advance();
     }
     this.framesSinceUpdate += output[0].length;

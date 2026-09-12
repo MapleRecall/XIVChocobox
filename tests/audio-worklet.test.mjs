@@ -65,3 +65,16 @@ test('changing tracks disposes the processor and releases PCM', () => {
   assert.equal(processor.channels.length, 0);
   assert.equal(processor.process([], [[new Float32Array(128)]]), false);
 });
+
+test('finite final loop pass fades its configured final segment without fading the tail', () => {
+  const processor = new Processor();
+  processor.port.onmessage({ data: { type: 'load', channels: [Float32Array.from([1, 2, 3, 4, 5, 6])], loop: { start: 1, end: 5 }, limit: 1, fadeOutSeconds: 3 / sampleRate, trackId: 1 } });
+  processor.port.onmessage({ data: { type: 'play' } });
+  const output = [new Float32Array(6)]; processor.process([], [output]);
+  assert(Math.abs(output[0][0] - 1) < 1e-6);
+  assert(Math.abs(output[0][1] - 2) < 1e-6);
+  assert(Math.abs(output[0][2] - 3) < 1e-6);
+  assert(Math.abs(output[0][3] - 8 / 3) < 1e-6);
+  assert(Math.abs(output[0][4] - 5 / 3) < 1e-6);
+  assert(Math.abs(output[0][5] - 6) < 1e-6);
+});

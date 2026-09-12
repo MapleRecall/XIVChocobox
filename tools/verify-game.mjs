@@ -15,7 +15,7 @@ const results = [];
 for (const track of samples) {
   try {
     const info = parseScd(await pack.read(track.path));
-    const { ogg, ...metadata } = info;
+    const { ogg, hca, ...metadata } = info;
     results.push({ title: track.title, path: track.path, ...metadata });
     if (!process.argv.includes('--all')) console.log(JSON.stringify(results.at(-1)));
   } catch (error) { results.push({ path: track.path, error: error.message }); console.error(track.path, error.message); }
