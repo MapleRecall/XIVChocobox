@@ -58,6 +58,18 @@ test('variant toggle waits for the next node and limits transition audio to the 
   assert.deepEqual(frame(), [120, 240]); assert.deepEqual(frame(), [20, 40]); assert.equal(processor.transition, null);
 });
 
+test('pause remains responsive after transition audio ends', () => {
+  const processor = new Processor();
+  const channels = Array.from({ length: 6 }, (_, index) => Float32Array.from({ length: 8 }, () => [10, 20, 30, 100, 40, 200][index]));
+  processor.port.onmessage({ data: { type: 'load', channels, loop: null, limit: 1, trackId: 1, variant: { groups: [[0, 2], [1, 4], [3, 5]], marks: [2, 5, 7], loop: null, initialVariant: 0 } } });
+  processor.port.onmessage({ data: { type: 'play' } });
+  processor.port.onmessage({ data: { type: 'variant-toggle' } });
+  for (let i = 0; i < 6; i++) processor.process([], [[new Float32Array(1), new Float32Array(1)]]);
+  assert.equal(processor.transition, null); assert.equal(processor.cursor.playing, true);
+  processor.port.onmessage({ data: { type: 'pause' } });
+  assert.equal(processor.cursor.playing, false);
+});
+
 test('changing tracks disposes the processor and releases PCM', () => {
   const processor = new Processor();
   processor.port.onmessage({ data: { type: 'load', channels: [new Float32Array(1000)], loop: null, limit: 1, trackId: 1 } });
