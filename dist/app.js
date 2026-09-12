@@ -1,6 +1,6 @@
-import { Player } from './lib/player.js?v=20260913-10';
-import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js?v=20260913-10';
-import { iconTexturePaths } from './lib/tex.js?v=20260913-10';
+import { Player } from './lib/player.js?v=20260913-12';
+import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-12';
+import { iconTexturePaths } from './lib/tex.js?v=20260913-12';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -178,6 +178,12 @@ function trackFormat(track) {
 function trackDuration(track) {
   return track.metadata?.ready && Number.isFinite(track.metadata.duration) ? time(track.metadata.duration) : '--:--';
 }
+function trackResourceSubtitle(track) {
+  return track.available ? track.path.split('/').pop().replace('.scd', '') : track.unavailableReason || '-';
+}
+function trackSubtitle(track) {
+  return track.available && !$('show-debug').checked ? trackUsage(track) : trackResourceSubtitle(track);
+}
 function buildTrackMetadata(track) {
   const metadata = document.createElement('span'); metadata.className = 'track-meta';
   const format = document.createElement('span'); format.className = 'track-format'; format.textContent = trackFormat(track); metadata.append(format);
@@ -190,6 +196,12 @@ function updateTrackRow(track) {
   const row = trackRows.get(track.id);
   if (!row) return;
   row.querySelector('.track-meta')?.replaceWith(buildTrackMetadata(track));
+  const subtitle = row.querySelector('.track-subtitle');
+  if (subtitle) {
+    const value = trackSubtitle(track);
+    subtitle.textContent = value;
+    subtitle.title = value;
+  }
   const duration = row.querySelector('.track-duration');
   if (duration) duration.textContent = trackDuration(track);
 }
@@ -237,17 +249,16 @@ function renderTracks() {
   const filtered = visibleTracks();
   const fragment = document.createDocumentFragment();
   trackRows = new Map();
-  for (const track of filtered) {
+  for (const [index, track] of filtered.entries()) {
     const button = document.createElement('button');
     button.className = 'track'; button.classList.toggle('selected', selected?.id === track.id);
     button.setAttribute('aria-pressed', String(selected?.id === track.id)); button.disabled = opening || !track.available;
-    const number = document.createElement('span'); number.className = 'track-index debug-only'; number.textContent = String(track.rowId).padStart(3, '0');
+    const number = document.createElement('span'); number.className = 'track-index'; number.textContent = String(index + 1);
     const content = document.createElement('span'); content.className = 'track-content';
     const name = document.createElement('span'); name.className = 'track-name'; name.textContent = track.title; name.title = track.title;
-    const subtitle = document.createElement('span'); subtitle.className = 'track-subtitle'; subtitle.textContent = track.available ? (track.kind === 'orchestrion' ? track.path.split('/').pop().replace('.scd', '') : track.path) : track.unavailableReason;
-    const resourceSubtitle = subtitle.textContent;
-    if (!$('show-debug').checked && track.available) subtitle.textContent = track.kind === 'orchestrion' ? '管弦乐谱' : '游戏配乐';
-    subtitle.title = $('show-debug').checked ? resourceSubtitle : subtitle.textContent;
+    const subtitle = document.createElement('span'); subtitle.className = 'track-subtitle';
+    subtitle.textContent = trackSubtitle(track);
+    subtitle.title = subtitle.textContent;
     const metadata = buildTrackMetadata(track);
     content.append(name, subtitle);
     const summary = document.createElement('span'); summary.className = 'track-summary';

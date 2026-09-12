@@ -1,6 +1,12 @@
 export function cleanTitle(value = '') {
   return value.split(' / ').map(part => part.replace(/\*+\s*$/, '').trim()).join(' / ');
 }
+const USAGE_FIELDS = ['dungeons', 'maps', 'seasonalEvents'];
+export function trackUsage(track = {}) {
+  const values = USAGE_FIELDS.flatMap(field => Array.isArray(track[field]) ? track[field] : [])
+    .map(value => String(value).trim()).filter(Boolean);
+  return [...new Set(values)].join('、') || '-';
+}
 export function summarizeMetadata(parsed) {
   return { ready: true, duration: Number.isFinite(parsed.duration) ? parsed.duration : null,
     hasLoop: Boolean(parsed.loop), hasVariant: Boolean(parsed.supported && parsed.channels === 6),

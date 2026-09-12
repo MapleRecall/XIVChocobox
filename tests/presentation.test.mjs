@@ -1,12 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { cleanTitle, summarizeMetadata } from '../dist/lib/presentation.js';
+import { cleanTitle, summarizeMetadata, trackUsage } from '../dist/lib/presentation.js';
 
 test('cleans annotations from each merged title but preserves interior stars', () => {
   assert.equal(cleanTitle('绚烂* / 天界**  '), '绚烂 / 天界');
   assert.equal(cleanTitle('A*B'), 'A*B');
   assert.equal(cleanTitle('星光'), '星光');
+});
+test('formats extensible track usage and falls back to a dash', () => {
+  assert.equal(trackUsage({}), '-');
+  assert.equal(trackUsage({ dungeons: ['泽梅尔要塞'], maps: ['西萨纳兰'], seasonalEvents: ['季节活动', '季节活动'] }), '泽梅尔要塞、西萨纳兰、季节活动');
 });
 test('preset catalog summaries retain parser loop and variant decisions', async () => {
   const { schemaVersion, tracks } = JSON.parse(await readFile(new URL('../dist/data/track-metadata.json', import.meta.url)));
