@@ -14,7 +14,7 @@ export class Player {
   constructor(onState, onError) {
     this.onState = onState; this.onError = onError;
     this.context = null; this.node = null; this.gain = null;
-    this.trackId = 0; this.volume = 0.7; this.limit = 3; this.channelSelection = null; this.channelSelectionMode = 'mono'; this.variantMode = false; this.channelCount = 0; this.playbackIntent = false; this.playbackCommand = 0;
+    this.trackId = 0; this.volume = 0.7; this.limit = 3; this.channelSelection = null; this.channelSelectionMode = 'mono'; this.variantMode = false; this.channelCount = 0;
     this.state = { position: 0, pass: 1, playing: false, finished: false };
     this.channelSelection = null; this.channelSelectionMode = 'mono'; this.variantMode = false; this.channelCount = 0;
   }
@@ -32,8 +32,6 @@ export class Player {
   }
   clear() {
     this.trackId++;
-    this.playbackCommand++; this.playbackIntent = false;
-    this.setOutputEnabled(false);
     if (this.node) {
       const oldNode = this.node;
       oldNode.port.onmessage = ({ data }) => { if (data.type === 'disposed') oldNode.port.close(); };
@@ -72,58 +70,15 @@ export class Player {
     this.node.port.onmessage = ({ data }) => {
       if (data.type === 'error') { this.onError(data.message); return; }
       if (data.trackId !== this.trackId) return;
-      this.applyWorkletState(data, rate);
+      this.state = { ...data, position: data.position / rate }; this.onState(this.state);
     };
     this.node.port.postMessage({ type: 'load', channels, loop, limit: Number.isFinite(this.limit) ? this.limit : null, fadeOutSeconds: 2, trackId: this.trackId, variant }, channels.map(c => c.buffer));
     return { duration: loadedDuration, sampleRate: rate };
   }
-  applyWorkletState(data, rate) {
-    if (data.finished) this.playbackIntent = false;
-    this.state = { ...data, playing: data.finished ? false : this.playbackIntent, position: data.position / rate };
-    this.onState(this.state);
-  }
-  async play() {
-    const command = ++this.playbackCommand; this.playbackIntent = true;
-    await this.activate();
-    if (command !== this.playbackCommand || !this.playbackIntent) return false;
-    this.setOutputEnabled(true);
-    this.node?.port.postMessage({ type: 'play' }); return true;
-  }
-  setOutputEnabled(enabled) {
-    if (!this.gain || !this.context) return;
-    const now = this.context.currentTime;
-    this.gain.gain.cancelScheduledValues(now);
-    this.gain.gain.setValueAtTime(enabled ? this.volume : 0, now);
-  }
-  isPlaying() {
-    if (this.playbackIntent || this.state.playing) return true;
-    // A delayed Worklet report can briefly leave both flags false while the
-    // running context is already emitting the current buffer.
-    return Boolean(this.node && this.context?.state === 'running' && !this.state.finished && this.state.position > 0);
-  }
-  pause() {
-    this.playbackCommand++; this.playbackIntent = false;
-    this.setOutputEnabled(false);
-    this.node?.port.postMessage({ type: 'pause' });
-    this.state = { ...this.state, playing: false }; this.onState(this.state);
-    // Also suspend the destination context. This makes pause deterministic
-    // even if the Worklet is between a variant transition and its next tick.
-    if (this.context?.state === 'running') this.context.suspend().catch(() => {});
-  }
-  async togglePlayback() {
-    // The AudioContext may be suspended independently of the Worklet cursor
-    // (tab throttling, output-device changes, or browser autoplay policy).
-    // Playback intent must therefore follow the cursor state, not context.state.
-    if (this.isPlaying()) { this.pause(); return false; }
-    return (await this.play()) !== false;
-  }
-  async restart() {
-    const command = ++this.playbackCommand; this.playbackIntent = true;
-    await this.activate();
-    if (command !== this.playbackCommand || !this.playbackIntent) return false;
-    this.setOutputEnabled(true);
-    this.node?.port.postMessage({ type: 'restart' }); return true;
-  }
+  async play() { await this.activate(); this.node?.port.postMessage({ type: 'play' }); }
+  pause() { this.node?.port.postMessage({ type: 'pause' }); }
+  async togglePlayback() { if (this.state.playing) { this.pause(); return false; } await this.play(); return true; }
+  async restart() { await this.activate(); this.node?.port.postMessage({ type: 'restart' }); }
   seek(seconds, pass = 1) { this.node?.port.postMessage({ type: 'seek', position: Math.round(seconds * this.context.sampleRate), pass }); }
   setLimit(limit) { this.limit = limit; this.node?.port.postMessage({ type: 'limit', limit: Number.isFinite(limit) ? limit : null }); }
   setChannel(channel) {
@@ -137,5 +92,5 @@ export class Player {
     this.node?.port.postMessage({ type: 'channel-set', channels: this.channelSelection, mode });
   }
   requestVariantToggle() { if (!this.variantMode || !this.node) return false; this.node.port.postMessage({ type: 'variant-toggle' }); return true; }
-  setVolume(volume) { this.volume = volume; if (this.gain) this.gain.gain.setTargetAtTime(this.playbackIntent || this.state.playing ? volume : 0, this.context.currentTime, 0.02); }
+  setVolume(volume) { this.volume = volume; if (this.gain) this.gain.gain.setTargetAtTime(volume, this.context.currentTime, 0.02); }
 }
