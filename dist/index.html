@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从本地 FINAL FANTASY XIV 资源读取管弦乐谱，按原始循环区间播放。">
+  <meta name="theme-color" content="#11161c">
+  <title>回响 · 管弦乐播放器</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-symbol" aria-hidden="true">♫</span><div><strong>回响</strong><span>管弦乐播放器</span></div></div>
+    <button id="open-directory" class="button primary">选择资源目录</button>
+  </header>
+  <main class="workspace">
+    <section class="library" aria-label="曲库">
+      <div class="library-heading"><h1>我的曲库</h1><span id="track-count" class="muted">尚未载入</span></div>
+      <label class="search"><span class="sr-only">搜索曲名或资源名</span><input id="search" type="search" placeholder="搜索曲名或资源名" disabled></label>
+      <div class="filters" role="group" aria-label="曲目类型"><button class="filter active" data-kind="orchestrion" aria-pressed="true">管弦乐谱</button><button class="filter" data-kind="bgm" aria-pressed="false">游戏配乐</button></div>
+      <p id="library-status" class="status" role="status">选择 FF14 安装内的 sqpack 文件夹，包含本体与资料片；也支持只选其中的 ffxiv。文件只在本机读取。</p>
+      <div id="tracks" class="tracks" aria-label="曲目列表"></div>
+    </section>
+    <section class="player" aria-label="播放器">
+      <div class="player-heading"><span class="eyebrow">NOW PLAYING</span><span id="codec" class="badge">本地播放</span></div>
+      <div class="track-title"><p id="track-category" class="muted">FINAL FANTASY XIV</p><h2 id="title">让旋律继续</h2><p id="description">选择资源目录，再从左侧选一首曲目。</p></div>
+      <div class="timeline-panel">
+        <div class="timeline-caption"><span>播放进度</span><span id="position-label" class="time">00:00 / 00:00</span></div>
+        <div id="timeline" class="timeline"><div id="loop-band" class="loop-band" hidden></div><div id="played" class="played"></div><div id="marks" class="marks"></div><input id="seek" type="range" min="0" max="1" value="0" step="0.01" disabled aria-label="播放进度"></div>
+        <div class="timeline-legend"><span><i class="swatch"></i>循环区间</span><span id="loop-range">选曲后显示</span></div>
+      </div>
+      <div class="transport"><button id="restart" class="button" disabled aria-label="从头播放">从头</button><button id="play" class="button play" disabled>播放</button><label class="volume">音量<input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="音量"></label></div>
+      <section id="channel-panel" class="channel-panel" hidden aria-label="多声道试听">
+        <div class="channel-heading"><div><h3>多声道试听</h3><p id="channel-help" class="muted">完整混音</p></div><button id="channel-all" class="button channel-choice active">全部声道</button></div>
+        <div id="channel-buttons" class="channel-buttons" role="group" aria-label="选择要单独试听的声道"></div>
+        <p class="channel-help">独听会把选中的声道复制到左右前声道，方便用耳机检查；不会改变资源文件。</p>
+      </section>
+      <div class="loop-settings">
+        <div><h3>循环播放</h3><p id="loop-status" class="muted" aria-live="polite">等待选择曲目</p></div>
+        <div class="loop-controls"><label><span class="sr-only">循环模式</span><select id="loop-mode"><option value="finite">有限次数</option><option value="infinite">无限循环</option></select></label><label id="limit-label" class="limit"><input id="loop-limit" type="number" min="1" max="999" step="1" value="3" aria-label="循环区间播放次数"><span>遍</span></label></div>
+        <p class="loop-help">次数包含循环段首次播放；达到上限后继续尾声。没有循环区间的曲目只播放一次。</p>
+      </div>
+      <p id="player-status" class="status" role="status">支持 Chrome / Edge · 第一版支持 OGG 音乐</p>
+      <details id="track-details" hidden><summary>资源信息</summary><dl id="metadata"></dl></details>
+    </section>
+  </main>
+  <footer>回响 <span>音乐来自你的本地游戏 · 无需上传</span></footer>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

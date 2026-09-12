@@ -1,0 +1,49 @@
+import { LoopCursor } from './lib/loop-cursor.js';
+
+class OrchestrionProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super(); this.channels = []; this.cursor = new LoopCursor(); this.framesSinceUpdate = 0; this.trackId = 0; this.soloChannel = -1; this.disposed = false;
+    this.port.onmessage = ({ data }) => {
+      try {
+        if (data.type === 'load') {
+          this.channels = data.channels; this.trackId = data.trackId; this.soloChannel = -1;
+          this.cursor = new LoopCursor(this.channels[0].length, data.loop, data.limit ?? Infinity);
+        } else if (data.type === 'dispose') {
+          this.channels = []; this.cursor = new LoopCursor(); this.disposed = true;
+          this.port.postMessage({ type: 'disposed' }); return;
+        } else if (data.type === 'clear') {
+          this.channels = []; this.cursor = new LoopCursor(); this.trackId = data.trackId;
+        } else if (data.type === 'play') this.cursor.play();
+        else if (data.type === 'pause') this.cursor.pause();
+        else if (data.type === 'seek') this.cursor.seek(data.position);
+        else if (data.type === 'restart') { this.cursor.reset(); this.cursor.play(); }
+        else if (data.type === 'limit') this.cursor.setLimit(data.limit ?? Infinity);
+        else if (data.type === 'channel') this.soloChannel = Number.isInteger(data.channel) ? data.channel : -1;
+        this.report();
+      } catch (error) { this.port.postMessage({ type: 'error', message: error.message }); }
+    };
+  }
+  report() { this.port.postMessage({ type: 'state', trackId: this.trackId, ...this.cursor.state() }); }
+  process(_inputs, outputs) {
+    if (this.disposed) return false;
+    const output = outputs[0];
+    const wasPlaying = this.cursor.playing, previousPass = this.cursor.pass;
+    for (let i = 0; i < output[0].length; i++) {
+      if (!this.cursor.playing || !this.channels.length) break;
+      if (this.soloChannel >= 0 && this.soloChannel < this.channels.length) {
+        const sample = this.channels[this.soloChannel][this.cursor.position] ?? 0;
+        for (let channel = 0; channel < output.length; channel++) output[channel][i] = channel < 2 ? sample : 0;
+      } else {
+        for (let channel = 0; channel < output.length; channel++) output[channel][i] = this.channels[channel]?.[this.cursor.position] ?? 0;
+      }
+      this.cursor.advance();
+    }
+    this.framesSinceUpdate += output[0].length;
+    if (wasPlaying !== this.cursor.playing || previousPass !== this.cursor.pass || this.framesSinceUpdate >= sampleRate / 15) {
+      if (this.channels.length) this.report();
+      this.framesSinceUpdate = 0;
+    }
+    return true;
+  }
+}
+registerProcessor('orchestrion-player', OrchestrionProcessor);
