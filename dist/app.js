@@ -344,6 +344,8 @@ function setAudioSelection(channels, label = '', mode = 'mono') {
 function renderState(state) {
   if (!dragging) { $('seek').value = String(state.position); $('played').style.width = `${duration ? Math.min(100, state.position / duration * 100) : 0}%`; }
   $('position-label').textContent = `${time(dragging ? Number($('seek').value) : state.position)} / ${time(duration)}`;
+  const playable = Boolean(info && !loading && player.node);
+  $('play').disabled = !playable; $('restart').disabled = !playable;
   const playLabel = state.playing ? '暂停' : state.finished ? '重播' : '播放';
   $('play').title = playLabel; $('play').setAttribute('aria-label', playLabel);
   setIcon($('play'), state.playing ? 'pause' : 'play');

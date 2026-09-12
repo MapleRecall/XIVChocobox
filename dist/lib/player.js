@@ -22,7 +22,7 @@ export class Player {
     if (!this.context) {
       this.context = new AudioContext({ latencyHint: 'playback' });
       this.gain = this.context.createGain(); this.gain.gain.value = this.volume; this.gain.connect(this.context.destination);
-      this.ready = this.context.audioWorklet.addModule(new URL('../audio-worklet.js', import.meta.url));
+      this.ready = this.context.audioWorklet.addModule(new URL('../audio-worklet.js?v=20260913-4', import.meta.url));
       this.context.onstatechange = () => {
         if (this.context.state === 'suspended' && this.state.playing) this.onError('浏览器暂停了音频，请点击播放继续。');
       };
@@ -96,7 +96,7 @@ export class Player {
     // The AudioContext may be suspended independently of the Worklet cursor
     // (tab throttling, output-device changes, or browser autoplay policy).
     // Playback intent must therefore follow the cursor state, not context.state.
-    if (this.playbackIntent) { this.pause(); return false; }
+    if (this.playbackIntent || this.state.playing) { this.pause(); return false; }
     return (await this.play()) !== false;
   }
   async restart() {

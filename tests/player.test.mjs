@@ -12,6 +12,16 @@ test('playback toggle pauses from cursor state even when AudioContext is suspend
   assert.equal(paused, 1); assert.equal(played, 0);
 });
 
+test('playback toggle also pauses when a delayed Worklet report still says playing', async () => {
+  const player = new Player(() => {}, () => {});
+  let paused = 0, played = 0;
+  player.state = { playing: true }; player.playbackIntent = false;
+  player.pause = () => { paused++; };
+  player.play = async () => { played++; };
+  assert.equal(await player.togglePlayback(), false);
+  assert.equal(paused, 1); assert.equal(played, 0);
+});
+
 test('playback toggle resumes when the cursor is paused', async () => {
   const player = new Player(() => {}, () => {});
   let paused = 0, played = 0;
