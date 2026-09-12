@@ -77,6 +77,13 @@ export class Player {
   }
   async play() { await this.activate(); this.node?.port.postMessage({ type: 'play' }); }
   pause() { this.node?.port.postMessage({ type: 'pause' }); }
+  async togglePlayback() {
+    // The AudioContext may be suspended independently of the Worklet cursor
+    // (tab throttling, output-device changes, or browser autoplay policy).
+    // Playback intent must therefore follow the cursor state, not context.state.
+    if (this.state.playing) { this.pause(); return false; }
+    await this.play(); return true;
+  }
   async restart() { await this.activate(); this.node?.port.postMessage({ type: 'restart' }); }
   seek(seconds, pass = 1) { this.node?.port.postMessage({ type: 'seek', position: Math.round(seconds * this.context.sampleRate), pass }); }
   setLimit(limit) { this.limit = limit; this.node?.port.postMessage({ type: 'limit', limit: Number.isFinite(limit) ? limit : null }); }

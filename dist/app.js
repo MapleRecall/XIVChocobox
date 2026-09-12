@@ -389,7 +389,7 @@ document.querySelectorAll('[data-feature]').forEach(button => button.addEventLis
   button.classList.toggle('active', featureFilters.has(feature)); button.setAttribute('aria-pressed', String(featureFilters.has(feature)));
   renderTracks(); $('tracks').scrollTop = 0;
 }));
-$('play').addEventListener('click', () => { if (player.state.playing && player.context.state === 'running') player.pause(); else player.play().catch(e => status('player-status', e.message, true)); });
+$('play').addEventListener('click', () => { player.togglePlayback().catch(e => status('player-status', e.message, true)); });
 $('restart').addEventListener('click', () => player.restart().catch(e => status('player-status', e.message, true)));
 $('seek').addEventListener('input', () => { dragging = true; renderState(player.state); $('played').style.width = `${Number($('seek').value) / duration * 100}%`; });
 $('seek').addEventListener('change', () => { dragging = false; player.seek(Number($('seek').value)); });
