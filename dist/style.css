@@ -5,3 +5,5 @@
 @media(max-width:680px){.workspace{display:flex;flex-direction:column}.library{border-right:0;border-bottom:1px solid var(--line)}.tracks{height:240px}.player{padding:26px 22px}.track-title{margin:30px 0}.brand strong{font-size:24px}.topbar .button{font-size:14px}footer{padding:20px 22px;gap:16px}}
 .library{display:flex;flex-direction:column;min-height:0}.tracks{flex:1;min-height:0;height:auto}.track-meta{display:block;font-size:12px;color:var(--cyan);margin-top:5px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:680px){.tracks{flex:none;height:240px;min-height:240px}}
+body{min-height:100vh;display:flex;flex-direction:column;overflow:hidden}.topbar,footer{flex:0 0 auto}.workspace{flex:1 1 auto;grid-template-rows:minmax(0,1fr);min-height:0;overflow:hidden}.player{min-height:0;overflow-y:auto}
+@media(max-width:680px){body{display:block;overflow:auto}.workspace{display:flex;flex:none;min-height:0;overflow:visible}.player{overflow:visible}}
