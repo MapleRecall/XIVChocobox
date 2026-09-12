@@ -1,6 +1,12 @@
 import { ascii, cstring, requireRange, view } from './binary.js';
+import { BGM_NAMES_EN, BGM_NAMES_ZH } from './bgm-names.js';
 
 const languages = { 0: '', 1: 'ja', 2: 'en', 3: 'de', 4: 'fr', 5: 'chs', 6: 'ko', 7: 'cht' };
+
+function bgmName(id) {
+  const usable = value => value && !['無', '???', 'Null BGM', 'test'].includes(value) ? value : null;
+  return usable(BGM_NAMES_ZH[id]) || usable(BGM_NAMES_EN[id]);
+}
 
 export async function readSheet(pack, name) {
   const bytes = await pack.read(`exd/${name}.exh`), d = view(bytes);
@@ -70,8 +76,15 @@ export async function buildCatalog(pack, progress = () => {}) {
   for (const [id, row] of bgm.rows) {
     const path = row[0];
     if (!path || !path.toLowerCase().endsWith('.scd')) continue;
-    if (byPath.has(path.toLowerCase())) { byPath.get(path.toLowerCase()).bgmIds.push(id); continue; }
-    const track = { id: `bgm:${id}`, rowId: id, bgmIds: [id], kind: 'bgm', title: path.split('/').pop().replace(/\.scd$/i, ''), description: '', path };
+    const key = path.toLowerCase(), name = bgmName(id);
+    if (byPath.has(key)) {
+      const track = byPath.get(key); track.bgmIds.push(id);
+      if (name && !track.bgmNames.includes(name)) track.bgmNames.push(name);
+      track.title = track.bgmNames.length ? track.bgmNames.join(' / ') : track.resourceTitle;
+      continue;
+    }
+    const resourceTitle = path.split('/').pop().replace(/\.scd$/i, '');
+    const track = { id: `bgm:${id}`, rowId: id, bgmIds: [id], bgmNames: name ? [name] : [], kind: 'bgm', title: name || resourceTitle, resourceTitle, description: '', path };
     tracks.push(track); byPath.set(path.toLowerCase(), track);
   }
   progress('正在检查曲目是否位于所选目录…');

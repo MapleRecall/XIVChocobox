@@ -21,8 +21,18 @@ http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:4173');
     res.setHeader('Cache-Control', 'no-store');
     const url = new URL(req.url, 'http://127.0.0.1');
-    if (url.pathname === '/verify.js') {
-      res.setHeader('Content-Type', 'text/javascript'); res.end(await readFile(new URL('../tests/browser-audio.mjs', import.meta.url))); return;
+    if (url.pathname === '/verify.js' || url.pathname === '/verify-variant.js') {
+      res.setHeader('Content-Type', 'text/javascript'); res.end(await readFile(new URL(url.pathname === '/verify.js' ? '../tests/browser-audio.mjs' : '../tests/browser-variant.mjs', import.meta.url))); return;
+    }
+    if (url.pathname === '/audio-worklet.js' || url.pathname === '/lib/loop-cursor.js') {
+      res.setHeader('Content-Type', 'text/javascript'); res.end(await readFile(new URL(url.pathname === '/audio-worklet.js' ? '../dist/audio-worklet.js' : '../dist/lib/loop-cursor.js', import.meta.url))); return;
+    }
+    if (url.pathname === '/verify.html' || url.pathname === '/verify-variant.html') {
+      const script = url.pathname === '/verify.html' ? '/verify.js' : '/verify-variant.js';
+      const functionName = url.pathname === '/verify.html' ? 'verifyAudio' : 'verifyVariant';
+      res.setHeader('Content-Type', 'text/html');
+      res.end(`<!doctype html><meta charset="utf-8"><title>Audio verification</title><pre id="result">running…</pre><script type="module">import { ${functionName} } from '${script}'; ${functionName}().then(value => { document.querySelector('#result').textContent = JSON.stringify(value, null, 2); }).catch(error => { document.querySelector('#result').textContent = error.stack || error.message; document.title = 'Audio verification failed'; });</script>`);
+      return;
     }
     const key = url.pathname.split('.')[0].slice(1);
     if (!tracks[key]) { res.writeHead(404).end(); return; }

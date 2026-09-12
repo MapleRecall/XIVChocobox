@@ -48,5 +48,5 @@ export async function verifyAudio() {
   const soloBuffer = await soloOffline.startRendering();
   const soloLeft = soloBuffer.getChannelData(0), soloRight = soloBuffer.getChannelData(1);
   assert(Math.abs(soloLeft[0] - .1) < 1e-6 && Math.abs(soloRight[0] - .5) < 1e-6, 'variant channels not preserved as stereo pair');
-  return { browser: navigator.userAgent, decodes: results, worklet: 'finite 3 passes, gapless, tail and stop verified', variantChannels: 'channels 1 and 3 preserved as left/right pair' };
+  return { browser: navigator.userAgent, decodes: results, worklet: 'finite 3 passes, gapless, tail and stop verified', variantChannels: 'FL/FC preserved as left/right stereo pair' };
 }

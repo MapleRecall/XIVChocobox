@@ -2,9 +2,9 @@ export class Player {
   constructor(onState, onError) {
     this.onState = onState; this.onError = onError;
     this.context = null; this.node = null; this.gain = null;
-    this.trackId = 0; this.volume = 0.7; this.limit = 3; this.channelSelection = null; this.channelSelectionMode = 'mono'; this.channelCount = 0;
+    this.trackId = 0; this.volume = 0.7; this.limit = 3; this.channelSelection = null; this.channelSelectionMode = 'mono'; this.variantMode = false; this.channelCount = 0;
     this.state = { position: 0, pass: 1, playing: false, finished: false };
-    this.channelSelection = null; this.channelSelectionMode = 'mono'; this.channelCount = 0;
+    this.channelSelection = null; this.channelSelectionMode = 'mono'; this.variantMode = false; this.channelCount = 0;
   }
   async activate() {
     if (!this.context) {
@@ -27,7 +27,7 @@ export class Player {
       oldNode.disconnect(); this.node = null;
     }
     this.state = { position: 0, pass: 1, playing: false, finished: false };
-    this.channelSelection = null; this.channelSelectionMode = 'mono'; this.channelCount = 0;
+    this.channelSelection = null; this.channelSelectionMode = 'mono'; this.variantMode = false; this.channelCount = 0;
     this.onState(this.state);
   }
   async load(info, stillCurrent = () => true) {
@@ -39,11 +39,12 @@ export class Player {
     catch { throw new Error('浏览器未能解码这首 OGG。请确认游戏已更新完成，并尝试重新选择目录。'); }
     if (!stillCurrent()) return false;
     const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i).slice());
-    this.channelCount = channels.length; this.channelSelection = null; this.channelSelectionMode = 'mono';
     const rate = decoded.sampleRate;
     // decodeAudioData resamples to context rate. Original sample indices must
     // be converted, otherwise a 44.1 kHz track loops incorrectly at 48 kHz.
     const loop = info.loop ? { start: Math.round(info.loop.start / info.sampleRate * rate), end: Math.min(decoded.length, Math.round(info.loop.end / info.sampleRate * rate)) } : null;
+    const variant = info.channels === 6 ? { groups: [[0, 2], [1, 4], [3, 5]], marks: (info.marks || []).map(mark => Math.round(mark / info.sampleRate * rate)), loop, initialVariant: 0 } : null;
+    this.channelCount = channels.length; this.channelSelection = variant ? [0, 2] : null; this.channelSelectionMode = variant ? 'pair' : 'mono'; this.variantMode = Boolean(variant);
     this.node = new AudioWorkletNode(this.context, 'orchestrion-player', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [channels.length] });
     this.node.connect(this.gain);
     const loadedId = this.trackId;
@@ -53,7 +54,7 @@ export class Player {
       if (data.trackId !== this.trackId) return;
       this.state = { ...data, position: data.position / rate }; this.onState(this.state);
     };
-    this.node.port.postMessage({ type: 'load', channels, loop, limit: Number.isFinite(this.limit) ? this.limit : null, trackId: this.trackId }, channels.map(c => c.buffer));
+    this.node.port.postMessage({ type: 'load', channels, loop, limit: Number.isFinite(this.limit) ? this.limit : null, trackId: this.trackId, variant }, channels.map(c => c.buffer));
     return { duration: decoded.duration, sampleRate: rate };
   }
   async play() { await this.activate(); this.node?.port.postMessage({ type: 'play' }); }
@@ -68,8 +69,9 @@ export class Player {
   setChannelSelection(channels, mode = 'mono') {
     if (channels !== null && (!Array.isArray(channels) || !channels.length || channels.some(channel => !Number.isInteger(channel) || channel < 0 || channel >= this.channelCount))) throw new Error('无效的声道组合。');
     if (!['mono', 'pair'].includes(mode)) throw new Error('无效的声道试听模式。');
-    this.channelSelection = channels ? [...new Set(channels)] : null; this.channelSelectionMode = mode;
+    this.variantMode = false; this.channelSelection = channels ? [...new Set(channels)] : null; this.channelSelectionMode = mode;
     this.node?.port.postMessage({ type: 'channel-set', channels: this.channelSelection, mode });
   }
+  requestVariantToggle() { if (!this.variantMode || !this.node) return false; this.node.port.postMessage({ type: 'variant-toggle' }); return true; }
   setVolume(volume) { this.volume = volume; if (this.gain) this.gain.gain.setTargetAtTime(volume, this.context.currentTime, 0.02); }
 }

@@ -3,7 +3,7 @@ import { Player } from './lib/player.js';
 const $ = id => document.getElementById(id);
 const worker = new Worker(new URL('./catalog-worker.js', import.meta.url), { type: 'module' });
 const pending = new Map();
-let requestId = 0, catalog = [], filter = 'orchestrion', selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null;
+let requestId = 0, catalog = [], filter = 'orchestrion', selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 const player = new Player(renderState, message => status('player-status', message, true));
 
@@ -71,7 +71,8 @@ function resetTrack() {
   $('codec').textContent = '本地播放'; $('loop-band').hidden = true; $('marks').replaceChildren();
   $('loop-range').textContent = '选曲后显示'; $('track-details').hidden = true;
   $('play').disabled = true; $('restart').disabled = true; $('seek').disabled = true;
-  $('channel-panel').hidden = true; $('channel-presets').replaceChildren(); $('channel-buttons').replaceChildren(); channelSelection = null;
+  $('channel-panel').hidden = true; $('channel-presets').replaceChildren(); $('channel-buttons').replaceChildren(); channelSelection = null; autoVariant = false;
+  $('variant-toggle').hidden = true; $('variant-toggle').disabled = true; $('variant-status').textContent = '独听会把选中的声道复制到左右声道，方便用耳机检查；默认变体切换会在下一个节点执行。';
   renderState({ position: 0, pass: 1, playing: false, finished: false });
 }
 async function selectTrack(track) {
@@ -101,6 +102,8 @@ async function loadSelected(track, current) {
   $('codec').textContent = `${parsed.codec} · ${parsed.channels} 声道`;
   $('seek').max = String(duration); $('seek').disabled = false; $('play').disabled = false; $('restart').disabled = false;
   renderChannels(info.channels);
+  autoVariant = info.channels === 6 && player.variantMode;
+  channelSelection = autoVariant ? [0, 2] : null; updateChannelSelectionButtons(); updateVariantControls(player.state);
   if (info.loop) {
     const start = info.loop.start / info.sampleRate, end = info.loop.end / info.sampleRate;
     $('loop-band').hidden = false; $('loop-band').style.left = `${start / duration * 100}%`; $('loop-band').style.width = `${(end - start) / duration * 100}%`;
@@ -113,16 +116,16 @@ async function loadSelected(track, current) {
   const fragment = document.createDocumentFragment();
   for (const [key, value] of metadata) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; fragment.append(dt, dd); }
   $('metadata').replaceChildren(fragment); $('track-details').hidden = false;
-  status('player-status', info.loop ? '金色区域为原始循环区间。拖动可跳转；从头播放会重新计数。' : '这首曲目没有有效循环区间，将完整播放一次。');
+  status('player-status', autoVariant ? '默认播放变体 1；点击“切换变体”会在下一个节点切换，并播放过渡音。' : info.loop ? '金色区域为原始循环区间。拖动可跳转；从头播放会重新计数。' : '这首曲目没有有效循环区间，将完整播放一次。');
   renderTracks(); await player.play();
 }
 function channelName(index, count) {
-  const names = count === 6 ? ['FL 前左', 'FR 前右', 'FC 中置', 'LFE 低频', 'SL 环绕左', 'SR 环绕右'] : count === 2 ? ['L 左', 'R 右'] : Array.from({ length: count }, (_, i) => `Ch ${i + 1}`);
+  const names = count === 6 ? ['FL（变体 1 · 左）', 'FR（变体 2 · 左）', 'FC（变体 1 · 右）', 'LFE（过渡 · 左）', 'SL（变体 2 · 右）', 'SR（过渡 · 右）'] : count === 2 ? ['L 左', 'R 右'] : Array.from({ length: count }, (_, i) => `Ch ${i + 1}`);
   return names[index] || `Ch ${index + 1}`;
 }
 function renderChannels(count) {
   if (count < 2) { $('channel-panel').hidden = true; return; }
-  $('channel-panel').hidden = false; $('channel-help').textContent = count === 6 ? '当前资源为 6 声道；预设按三个立体声轨显示。' : `${count} 声道资源`;
+  $('channel-panel').hidden = false; $('channel-help').textContent = count === 6 ? '当前资源为 6 声道；预设按三个立体声轨显示，不按 5.1 中置/环绕布局下混。' : `${count} 声道资源`;
   const presets = document.createDocumentFragment();
   if (count === 6) {
     const definitions = [
@@ -148,11 +151,25 @@ function updateChannelSelectionButtons() {
   $('channel-all').classList.toggle('active', !channelSelection); $('channel-all').setAttribute('aria-pressed', String(!channelSelection));
   document.querySelectorAll('[data-channels]').forEach(button => { const active = button.dataset.channels === selected; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
 }
+function updateVariantControls(state = player.state) {
+  const enabled = Boolean(autoVariant && info?.channels === 6 && player.variantMode);
+  const button = $('variant-toggle'); button.hidden = !enabled; button.disabled = !enabled;
+  if (!enabled) {
+    $('variant-status').textContent = info?.channels === 6 ? '当前为手动试听；重新选择曲目会恢复变体 1 默认播放和节点切换。' : '独听会把选中的声道复制到左右声道，方便用耳机检查。';
+    return;
+  }
+  const variant = Number.isInteger(state.variant) ? state.variant : 0;
+  const selected = variant === 0 ? [0, 2] : [1, 4];
+  if (channelSelection?.join(',') !== selected.join(',')) { channelSelection = selected; updateChannelSelectionButtons(); }
+  button.textContent = `切换到变体 ${variant === 0 ? '2' : '1'}`;
+  const pending = Number.isInteger(state.variantPending);
+  $('variant-status').textContent = pending ? `已请求切换到变体 ${state.variantPending + 1}；将在下一个节点执行。` : state.variantTransition ? `当前为变体 ${variant + 1}；过渡音播放到下一个节点。` : `当前为变体 ${variant + 1}；点击按钮将在下一个节点切换。`;
+}
 function setAudioSelection(channels, label = '', mode = 'mono') {
   if (!info) throw new Error('请先选择曲目。');
   const normalized = channels === null ? null : [...new Set(channels)].filter(channel => Number.isInteger(channel));
   if (normalized && (!normalized.length || normalized.some(channel => channel < 0 || channel >= info.channels))) throw new Error('无效的声道组合。');
-  channelSelection = normalized; player.setChannelSelection(normalized, mode); updateChannelSelectionButtons();
+  autoVariant = false; channelSelection = normalized; player.setChannelSelection(normalized, mode); updateChannelSelectionButtons(); updateVariantControls();
   status('player-status', normalized ? `${mode === 'pair' ? '正在按立体声轨试听' : '正在独听'} ${label || normalized.map(channel => channelName(channel, info.channels)).join(' + ')}。` : '正在播放完整多声道混音。');
 }
 function renderState(state) {
@@ -165,6 +182,7 @@ function renderState(state) {
   else if (state.loopExited) $('loop-status').textContent = '循环段已结束，继续尾声';
   else if (state.position < info.loop.start / info.sampleRate) $('loop-status').textContent = '前奏 · 即将进入循环段';
   else $('loop-status').textContent = `循环段第 ${state.pass} 遍 / ${player.limit === Infinity ? '∞' : player.limit} 遍`;
+  updateVariantControls(state);
 }
 function configureLoop(mode, limit) {
   if (!['finite', 'infinite'].includes(mode) || !Number.isInteger(limit) || limit < 1 || limit > 999) throw new Error('循环次数必须是 1～999 的整数。');
@@ -185,6 +203,7 @@ $('seek').addEventListener('input', () => { dragging = true; renderState(player.
 $('seek').addEventListener('change', () => { dragging = false; player.seek(Number($('seek').value)); });
 $('volume').addEventListener('input', () => player.setVolume(Number($('volume').value)));
 $('channel-all').addEventListener('click', () => setAudioSelection(null));
+$('variant-toggle').addEventListener('click', () => { if (player.requestVariantToggle()) status('player-status', '已请求切换，将在下一个节点切换变体并播放过渡音。'); });
 for (const id of ['loop-mode', 'loop-limit']) $(id).addEventListener('change', () => {
   if (!$('loop-limit').checkValidity()) { $('loop-limit').reportValidity(); return; }
   configureLoop($('loop-mode').value, Number($('loop-limit').value));
@@ -204,8 +223,8 @@ if (document.modelContext?.registerTool) {
   const tools = [
     { name: 'get_player_state', title: '读取播放状态', description: '读取已选择曲目、播放位置和循环设置。', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: () => ({ track: selected?.title || null, ...player.state, loopMode: player.limit === Infinity ? 'infinite' : 'finite', limit: Number.isFinite(player.limit) ? player.limit : null }) },
     { name: 'set_loop_playback', title: '设置循环次数', description: '改变循环模式；有限次数包含循环段首次播放。', inputSchema: { type: 'object', properties: { mode: { enum: ['finite', 'infinite'] }, limit: { type: 'integer', minimum: 1, maximum: 999 } }, required: ['mode', 'limit'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { configureLoop(input.mode, input.limit); return { mode: input.mode, limit: input.limit }; } },
-    { name: 'set_audio_channel', title: '选择试听声道', description: '选择完整多声道混音，或独听某一个声道。独听会复制到左右前声道。', inputSchema: { type: 'object', properties: { channel: { type: 'integer', minimum: -1, maximum: 7 } }, required: ['channel'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { setAudioSelection(input.channel < 0 ? null : [input.channel]); return { channel: input.channel, mode: input.channel < 0 ? 'all' : 'solo' }; } },
-    { name: 'set_audio_variant', title: '选择游戏变体', description: '在六声道资源中选择已识别的游戏变体立体声轨：变体 1 为 FL+FC，变体 2 为 FR+SL，过渡强音为 LFE+SR。每组第一个源声道送左声道，第二个送右声道。', inputSchema: { type: 'object', properties: { variant: { enum: ['all', 'one', 'two', 'transition'] } }, required: ['variant'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { const groups = { all: null, one: [0, 2], two: [1, 4], transition: [3, 5] }; if (groups[input.variant] && (!info || info.channels !== 6)) throw new Error('当前曲目不是六声道资源。'); setAudioSelection(groups[input.variant], input.variant, 'pair'); return { variant: input.variant, channels: groups[input.variant] }; } },
+    { name: 'set_audio_channel', title: '选择试听声道', description: '选择完整多声道混音，或独听某一个声道。独听会复制到左右声道。', inputSchema: { type: 'object', properties: { channel: { type: 'integer', minimum: -1, maximum: 7 } }, required: ['channel'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { setAudioSelection(input.channel < 0 ? null : [input.channel]); return { channel: input.channel, mode: input.channel < 0 ? 'all' : 'solo' }; } },
+    { name: 'set_audio_variant', title: '选择游戏变体', description: '在六声道资源中选择已识别的游戏变体立体声轨：变体 1 为 FL+FC，变体 2 为 FR+SL，过渡强音为 LFE+SR。每组第一个源声道送左声道，第二个送右声道，只输出这一组立体声。', inputSchema: { type: 'object', properties: { variant: { enum: ['all', 'one', 'two', 'transition'] } }, required: ['variant'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { const groups = { all: null, one: [0, 2], two: [1, 4], transition: [3, 5] }; if (groups[input.variant] && (!info || info.channels !== 6)) throw new Error('当前曲目不是六声道资源。'); setAudioSelection(groups[input.variant], input.variant, 'pair'); return { variant: input.variant, channels: groups[input.variant] }; } },
   ];
   for (const tool of tools) { try { Promise.resolve(document.modelContext.registerTool(tool, { signal: lifecycle.signal })).catch(() => {}); } catch { /* Optional API. */ } }
   window.addEventListener('pagehide', () => lifecycle.abort(), { once: true });

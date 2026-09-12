@@ -45,6 +45,19 @@ test('game variant channel groups preserve the two source channels as a stereo t
   assert.deepEqual([...output[0]], [2,4]); assert.deepEqual([...output[1]], [6,8]); assert(output[2].every(value => value === 0));
 });
 
+test('variant toggle waits for the next node and limits transition audio to the following node', () => {
+  const processor = new Processor();
+  const channels = Array.from({ length: 6 }, (_, index) => Float32Array.from({ length: 8 }, () => [10, 20, 30, 100, 40, 200][index]));
+  processor.port.onmessage({ data: { type: 'load', channels, loop: null, limit: 1, trackId: 1, variant: { groups: [[0, 2], [1, 4], [3, 5]], marks: [2, 5, 7], loop: null, initialVariant: 0 } } });
+  processor.port.onmessage({ data: { type: 'play' } });
+  const frame = () => { const output = [new Float32Array(1), new Float32Array(1)]; processor.process([], [output]); return [output[0][0], output[1][0]]; };
+  assert.deepEqual(frame(), [10, 30]); assert.deepEqual(frame(), [10, 30]);
+  processor.port.onmessage({ data: { type: 'variant-toggle' } });
+  assert.deepEqual(frame(), [10, 30]); assert.deepEqual(frame(), [10, 30]); assert.deepEqual(frame(), [10, 30]);
+  assert.deepEqual(frame(), [120, 240]); assert.equal(processor.activeVariant, 1); assert(processor.transition);
+  assert.deepEqual(frame(), [120, 240]); assert.deepEqual(frame(), [20, 40]); assert.equal(processor.transition, null);
+});
+
 test('changing tracks disposes the processor and releases PCM', () => {
   const processor = new Processor();
   processor.port.onmessage({ data: { type: 'load', channels: [new Float32Array(1000)], loop: null, limit: 1, trackId: 1 } });
