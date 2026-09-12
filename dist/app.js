@@ -133,11 +133,14 @@ function renderTracks() {
     button.setAttribute('aria-pressed', String(selected?.id === track.id)); button.disabled = opening || !track.available;
     const number = document.createElement('span'); number.className = 'track-index'; number.textContent = String(track.rowId).padStart(3, '0');
     const content = document.createElement('span'); content.className = 'track-content';
-    const name = document.createElement('span'); name.className = 'track-name'; name.textContent = track.title;
+    const name = document.createElement('span'); name.className = 'track-name'; name.textContent = track.title; name.title = track.title;
     const subtitle = document.createElement('span'); subtitle.className = 'track-subtitle'; subtitle.textContent = track.available ? (track.kind === 'orchestrion' ? track.path.split('/').pop().replace('.scd', '') : track.path) : track.unavailableReason;
+    subtitle.title = subtitle.textContent;
     const metadata = buildTrackMetadata(track);
-    content.append(name, subtitle, metadata); button.append(number, content);
-    const badge = document.createElement('span'); badge.className = 'track-tag track-duration'; badge.textContent = trackDuration(track); button.append(badge);
+    content.append(name, subtitle);
+    const summary = document.createElement('span'); summary.className = 'track-summary';
+    const badge = document.createElement('span'); badge.className = 'track-tag track-duration'; badge.textContent = trackDuration(track);
+    summary.append(badge, metadata); button.append(number, content, summary);
     button.addEventListener('click', () => selectTrack(track)); fragment.append(button); trackRows.set(track.id, button);
   }
   if (!filtered.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = catalog.length ? '没有找到匹配的曲目。' : '曲库将在这里显示。'; fragment.append(p); }
