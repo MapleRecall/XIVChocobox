@@ -1,5 +1,5 @@
-import { Player } from './lib/player.js?v=20260913-6';
-import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js';
+import { Player } from './lib/player.js?v=20260913-7';
+import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js?v=20260913-7';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -10,12 +10,18 @@ let libraryLabel = '', metadataScanId = 0, trackRows = new Map(), lastDirectoryH
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
 let metadataCache = readMetadataCache(), cacheWriteTimer = null;
-let lastVariant = null, filteredRenderTimer = null;
+const PLAYBACK_ORDERS = [
+  { mode: 'sequential', label: '顺序播放', icon: 'order' },
+  { mode: 'repeat-all', label: '全部循环', icon: 'repeat' },
+  { mode: 'repeat-one', label: '单曲循环', icon: 'repeatOne' },
+  { mode: 'shuffle', label: '随机播放', icon: 'shuffle' },
+];
+let lastVariant = null, filteredRenderTimer = null, playbackMode = 'sequential', finishHandledTrackId = null;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
   .then(response => { if (!response.ok) throw new Error('Metadata unavailable'); return response.json(); })
   .then(data => data.schemaVersion === 1 ? data.tracks : {}).catch(() => ({}));
 let presetMetadata = {};
-const player = new Player(renderState, message => status('player-status', message, true));
+const player = new Player(handlePlayerState, message => status('player-status', message, true));
 
 worker.onmessage = ({ data }) => {
   const entry = pending.get(data.id);
@@ -35,6 +41,85 @@ function request(type, payload = {}, progress) {
   });
 }
 function status(id, message, error = false) { $(id).textContent = message; $(id).classList.toggle('error', error); }
+function currentPlaybackOrder() { return PLAYBACK_ORDERS.find(order => order.mode === playbackMode) || PLAYBACK_ORDERS[0]; }
+function persistPreferences() {
+  try {
+    localStorage.setItem('xiv-player-preferences', JSON.stringify({
+      mode: $('loop-mode').value,
+      limit: Number($('loop-limit').value),
+      volume: player.volume,
+      playbackMode,
+    }));
+  } catch { /* Storage can be disabled. */ }
+}
+function updatePlaybackOrder() {
+  const order = currentPlaybackOrder();
+  const button = $('playback-order');
+  button.title = `播放顺序：${order.label}（点击切换）`;
+  button.setAttribute('aria-label', `播放顺序：${order.label}`);
+  button.classList.toggle('active', order.mode !== 'sequential');
+  setIcon($('playback-order-icon'), order.icon);
+}
+function setPlaybackMode(mode, announce = true) {
+  if (!PLAYBACK_ORDERS.some(order => order.mode === mode)) return;
+  playbackMode = mode;
+  updatePlaybackOrder();
+  persistPreferences();
+  if (announce) status('player-status', `播放顺序：${currentPlaybackOrder().label}`);
+  if (player.state.finished && selected && info && mode !== 'sequential') {
+    finishHandledTrackId = null;
+    handlePlayerState(player.state);
+  }
+}
+function visibleTracks() {
+  const query = $('search').value.trim().toLocaleLowerCase();
+  return catalog.filter(track => track.kind === filter
+    && [...featureFilters].every(feature => track.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`])
+    && `${track.title} ${track.path} ${track.rowId}`.toLocaleLowerCase().includes(query));
+}
+function playlistTracks() { return visibleTracks().filter(track => track.available); }
+function randomTrack(tracks, currentId) {
+  const choices = tracks.filter(track => track.id !== currentId);
+  return choices[Math.floor(Math.random() * choices.length)] || tracks.find(track => track.id === currentId) || null;
+}
+function adjacentTrack(direction = 1, automatic = false) {
+  const playlist = playlistTracks();
+  const index = playlist.findIndex(track => track.id === selected?.id);
+  if (index < 0 || !playlist.length) return null;
+  if (automatic) {
+    if (playbackMode === 'repeat-one') return selected;
+    if (playbackMode === 'shuffle') return randomTrack(playlist, selected.id);
+    if (index + 1 < playlist.length) return playlist[index + 1];
+    return playbackMode === 'repeat-all' ? playlist[0] : null;
+  }
+  if (playbackMode === 'shuffle') return randomTrack(playlist, selected.id);
+  const target = index + direction;
+  if (target >= 0 && target < playlist.length) return playlist[target];
+  return playbackMode === 'repeat-all' ? playlist[(target + playlist.length) % playlist.length] : null;
+}
+function updateNavigationControls() {
+  const playlist = playlistTracks();
+  const index = playlist.findIndex(track => track.id === selected?.id);
+  const usable = !opening && !loading && index >= 0 && playlist.length > 1;
+  const wraps = playbackMode === 'repeat-all' || playbackMode === 'shuffle';
+  $('previous').disabled = !usable || (!wraps && index === 0);
+  $('next').disabled = !usable || (!wraps && index === playlist.length - 1);
+}
+function handlePlayerState(state) {
+  renderState(state);
+  if (!state.finished) {
+    finishHandledTrackId = null;
+    return;
+  }
+  if (!selected || !info || loading || finishHandledTrackId === selected.id) return;
+  finishHandledTrackId = selected.id;
+  if (playbackMode === 'repeat-one') {
+    player.restart().catch(error => status('player-status', error.message, true));
+    return;
+  }
+  const next = adjacentTrack(1, true);
+  if (next) void selectTrack(next);
+}
 function syncLoading() {
   $('timeline').classList.toggle('is-loading', loading);
   $('timeline').setAttribute('aria-busy', String(loading));
@@ -142,8 +227,7 @@ function startMetadataScan(kind = filter) {
   });
 }
 function renderTracks() {
-  const query = $('search').value.trim().toLocaleLowerCase();
-  const filtered = catalog.filter(t => t.kind === filter && [...featureFilters].every(feature => t.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`]) && `${t.title} ${t.path} ${t.rowId}`.toLocaleLowerCase().includes(query));
+  const filtered = visibleTracks();
   const fragment = document.createDocumentFragment();
   trackRows = new Map();
   for (const track of filtered) {
@@ -167,6 +251,7 @@ function renderTracks() {
   if (!filtered.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = catalog.length ? '没有找到匹配的曲目。' : '曲库将在这里显示。'; fragment.append(p); }
   $('tracks').replaceChildren(fragment);
   $('track-count').textContent = catalog.length ? `${filtered.length} 首` : '尚未载入';
+  updateNavigationControls();
 }
 async function openDirectory(directory) {
   opening = true; $('open-directory').disabled = true;
@@ -193,8 +278,26 @@ async function chooseDirectory() {
     if (error.name !== 'AbortError') status('library-status', error.message, true);
   } finally { opening = false; $('open-directory').disabled = !window.showDirectoryPicker; renderTracks(); }
 }
+function renderTrackInfo() {
+  const track = selected;
+  const hasInfo = Boolean(track && info);
+  $('info-category').textContent = track ? (track.kind === 'orchestrion' ? '管弦乐谱' : '游戏配乐') : 'FINAL FANTASY XIV';
+  $('info-title').textContent = track?.title || '让旋律继续';
+  $('info-description').textContent = track?.description || (hasInfo ? '本地游戏资源' : '选择一首曲目后，这里会显示曲目信息。');
+  const rows = hasInfo ? [
+    ['时长', time(duration)],
+    ['格式', info.codec || track.codec || '未知'],
+    ['声道', `${info.channels} 声道${info.channels === 6 ? '（3 个立体声轨）' : ''}`],
+    ['曲内循环', info.loop ? `${time(info.loop.start / info.sampleRate, true)} — ${time(info.loop.end / info.sampleRate, true)}` : '无'],
+    ['变体切换', info.channels === 6 ? '支持' : '无'],
+  ] : [];
+  const fragment = document.createDocumentFragment();
+  for (const [key, value] of rows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; fragment.append(dt, dd); }
+  $('info-summary').replaceChildren(fragment);
+}
 function resetTrack() {
   lastVariant = null;
+  if ($('track-info-menu').open) $('track-info-menu').close();
   $('cover').dataset.textureId = String(selected?.coverTextureId ?? '');
   $('cover').dataset.texturePath = selected?.coverTexturePath ?? '';
   $('cover').setAttribute('aria-label', selected ? selected.title + ' · 默认封面' : '默认音乐封面');
@@ -204,15 +307,18 @@ function resetTrack() {
   $('track-category').textContent = selected ? (selected.kind === 'orchestrion' ? '管弦乐谱' : '游戏配乐') : 'FINAL FANTASY XIV';
   $('codec').textContent = '本地播放'; $('loop-band').hidden = true; $('marks').replaceChildren();
   $('loop-range').textContent = '选曲后显示'; $('track-details').hidden = true;
-  $('play').disabled = true; $('restart').disabled = true; $('seek').disabled = true;
+  $('play').disabled = true; $('info-toggle').disabled = true; $('seek').disabled = true;
   $('channel-panel').hidden = true; $('channel-presets').replaceChildren(); $('channel-buttons').replaceChildren(); channelSelection = null; autoVariant = false;
-  $('variant-toggle').hidden = false; $('variant-toggle').disabled = true; $('variant-status').textContent = '独听会把选中的声道复制到左右声道，方便用耳机检查；默认变体切换会在下一个节点执行。';
+  $('variant-toggle').hidden = false; $('variant-toggle').disabled = true; $('variant-status').textContent = '';
+  renderTrackInfo(); updateNavigationControls();
   renderState({ position: 0, pass: 1, playing: false, finished: false });
 }
 async function selectTrack(track) {
   if (opening || !track.available) return;
   const current = ++selection;
   metadataScanId++;
+  finishHandledTrackId = null;
+  if ($('track-info-menu').open) $('track-info-menu').close();
   player.clear(); selected = track; info = null; duration = 0; loading = true;
   resetTrack(); renderTracks(); status('player-status', '正在读取并解码音乐…');
   // Resume must be requested while the original click has user activation.
@@ -235,9 +341,9 @@ async function loadSelected(track, current) {
   if (!parsed.supported) { loading = false; $('codec').textContent = parsed.codec; $('loop-status').textContent = '此资源暂不能播放'; status('player-status', parsed.reason, true); renderTracks(); return; }
   const loaded = await player.load(parsed, () => current === selection);
   if (!loaded || current !== selection) return;
-  info = parsed; delete info.ogg; delete info.hca; delete info.pcmChannels; delete info.hcaHeader; duration = loaded.duration; loading = false; syncLoading();
+  info = parsed; delete info.ogg; delete info.hca; delete info.pcmChannels; delete info.hcaHeader; duration = loaded.duration; loading = false; syncLoading(); renderTrackInfo();
   $('codec').textContent = `${parsed.codec} · ${parsed.channels} 声道`;
-  $('seek').max = String(duration); $('seek').disabled = false; $('play').disabled = false; $('restart').disabled = false;
+  $('seek').max = String(duration); $('seek').disabled = false; $('play').disabled = false; $('info-toggle').disabled = false;
   renderChannels(info.channels);
   autoVariant = info.channels === 6 && player.variantMode;
   channelSelection = autoVariant ? [0, 2] : null; updateChannelSelectionButtons(); updateVariantControls(player.state);
@@ -323,7 +429,7 @@ function renderState(state) {
   if (!dragging) { $('seek').value = String(state.position); $('played').style.width = `${duration ? Math.min(100, state.position / duration * 100) : 0}%`; }
   $('position-label').textContent = `${time(dragging ? Number($('seek').value) : state.position)} / ${time(duration)}`;
   const playable = Boolean(info && !loading);
-  $('play').disabled = !playable; $('restart').disabled = !playable;
+  $('play').disabled = !playable; $('info-toggle').disabled = !playable;
   const playLabel = state.playing ? '暂停' : state.finished ? '重播' : '播放';
   $('play').title = playLabel; $('play').setAttribute('aria-label', playLabel);
   setIcon($('play'), state.playing ? 'pause' : 'play');
@@ -341,17 +447,21 @@ function renderState(state) {
   if (!info || !info.loop) $('loop-status').textContent = '';
   else if (player.limit === 1) $('loop-status').textContent = '循环关闭';
   updateVariantControls(state);
+  updateNavigationControls();
 }
 function configureLoop(mode, limit) {
   if (!['off', 'finite', 'infinite'].includes(mode) || !Number.isInteger(limit) || limit < 1 || limit > 999) throw new Error('循环次数必须是 1～999 的整数。');
   $('loop-mode').value = mode; $('loop-limit').value = String(limit); $('limit-label').hidden = mode !== 'finite';
-  player.setLimit(mode === 'off' ? 1 : mode === 'infinite' ? Infinity : limit); renderState(player.state);
-  try { localStorage.setItem('xiv-player-preferences', JSON.stringify({ mode, limit, volume: player.volume })); } catch { /* Storage can be disabled. */ }
+  player.setLimit(mode === 'off' ? 1 : mode === 'infinite' ? Infinity : limit); renderState(player.state); persistPreferences();
 }
 document.querySelectorAll('[data-icon]').forEach(element => setIcon(element, element.dataset.icon));
+updatePlaybackOrder();
 $('settings-open').addEventListener('click', () => $('settings-menu').showModal());
 $('settings-close').addEventListener('click', () => $('settings-menu').close());
 $('settings-menu').addEventListener('click', event => { if (event.target === $('settings-menu')) { const box = event.target.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) event.target.close(); } });
+$('info-toggle').addEventListener('click', () => { if (!info || loading) return; renderTrackInfo(); $('track-info-menu').showModal(); });
+$('track-info-close').addEventListener('click', () => $('track-info-menu').close());
+$('track-info-menu').addEventListener('click', event => { if (event.target === $('track-info-menu')) { const box = event.target.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) event.target.close(); } });
 for (const id of ['show-channels', 'show-debug']) $(id).addEventListener('change', applySettings);
 try { const saved = JSON.parse(localStorage.getItem('xiv-player-display')); $('show-channels').checked = Boolean(saved?.channels); $('show-debug').checked = Boolean(saved?.debug); } catch {}
 document.body.classList.toggle('show-debug', $('show-debug').checked);
@@ -369,7 +479,12 @@ document.querySelectorAll('[data-feature]').forEach(button => button.addEventLis
   renderTracks(); $('tracks').scrollTop = 0;
 }));
 $('play').addEventListener('click', () => { player.togglePlayback().catch(e => status('player-status', e.message, true)); });
-$('restart').addEventListener('click', () => player.restart().catch(e => status('player-status', e.message, true)));
+$('previous').addEventListener('click', () => { const track = adjacentTrack(-1); if (track) void selectTrack(track); });
+$('next').addEventListener('click', () => { const track = adjacentTrack(1); if (track) void selectTrack(track); });
+$('playback-order').addEventListener('click', () => {
+  const index = PLAYBACK_ORDERS.findIndex(order => order.mode === playbackMode);
+  setPlaybackMode(PLAYBACK_ORDERS[(index + 1) % PLAYBACK_ORDERS.length].mode);
+});
 $('seek').addEventListener('input', () => { dragging = true; renderState(player.state); $('played').style.width = `${Number($('seek').value) / duration * 100}%`; });
 $('seek').addEventListener('change', () => { dragging = false; player.seek(Number($('seek').value)); });
 $('volume').addEventListener('input', () => player.setVolume(Number($('volume').value)));
@@ -383,7 +498,8 @@ try {
   const saved = JSON.parse(localStorage.getItem('xiv-player-preferences'));
   if (saved) {
     if (Number.isFinite(saved.volume) && saved.volume >= 0 && saved.volume <= 1) { player.setVolume(saved.volume); $('volume').value = String(saved.volume); }
-    configureLoop(saved.mode, saved.limit);
+    if (['off', 'finite', 'infinite'].includes(saved.mode) && Number.isInteger(saved.limit) && saved.limit >= 1 && saved.limit <= 999) configureLoop(saved.mode, saved.limit);
+    if (PLAYBACK_ORDERS.some(order => order.mode === saved.playbackMode)) { playbackMode = saved.playbackMode; updatePlaybackOrder(); }
   }
 } catch { /* Invalid preferences leave defaults intact. */ }
 try { localStorage.removeItem('xiv-player-playback-positions-v1'); } catch {}

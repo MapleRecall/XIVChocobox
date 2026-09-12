@@ -8,3 +8,24 @@ dialog,.popover{color:var(--text);background:#19232c;border:1px solid #42505c;bo
 @keyframes loading{from{background-position:200% 0}to{background-position:-200% 0}}@media(prefers-reduced-motion:reduce){.is-loading .loading-shimmer{animation:none;background:#776141}.switch-flash{display:none}}
 :root{color-scheme:dark;--bg:#11161c;--panel:#192129;--line:#303c46;--text:#ecf0f2;--muted:#a4b0ba;--accent:#eac079;--cyan:#83c8d3;font-family:system-ui,"Microsoft YaHei",sans-serif;font-size:16px;background:var(--bg);color:var(--text)}
 svg{pointer-events:none}
+.playback-hints{align-items:center;min-height:38px;margin-top:10px}
+.hint-control{min-width:0;flex:1;display:flex;align-items:center;gap:8px;padding:5px 6px;border:0;border-radius:6px;background:none;color:var(--muted);text-align:left}
+.hint-control:hover:not(:disabled){background:#212d36;color:var(--text)}
+.hint-control-right{justify-content:flex-end;text-align:right}
+.hint-icon{display:grid;place-items:center;flex:none;width:22px;height:22px}
+.hint-icon svg{width:17px;height:17px}
+.hint-copy{min-width:0;display:flex;flex-direction:column;gap:2px;line-height:1.2}
+.hint-control-right .hint-copy{align-items:flex-end}
+.hint-label{font-size:12px;color:inherit;white-space:nowrap}
+.hint-status{display:block;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted)}
+#variant-status{color:var(--cyan);text-align:inherit}
+.hint-control .control-badge{position:static;min-width:0;padding:0 3px;background:transparent;line-height:16px;font-size:11px}
+.transport{gap:16px;margin:18px 0 16px}
+.transport>.icon-button:not(.play){width:46px;height:46px}
+.track-info-menu{width:min(520px,90vw)}
+.track-info-menu h3{font-family:"Noto Serif SC","Songti SC",SimSun,serif;font-size:25px;font-weight:500;line-height:1.4;margin:8px 0}
+.info-description{color:var(--muted);font-size:14px;line-height:1.7;max-height:5.1em;overflow-y:auto}
+#info-summary{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);grid-template-columns:100px minmax(0,1fr);font-size:14px}
+#info-summary dt{color:var(--muted)}
+#info-summary dd{color:var(--text)}
+.track-info-menu details{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}

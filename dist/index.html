@@ -19,12 +19,16 @@
 <div class="track-title"><p id="track-category" class="muted">FINAL FANTASY XIV</p><h2 id="title">让旋律继续</h2><p id="description">从曲库选择一首音乐</p></div>
 <div class="timeline-panel"><div class="timeline-caption"><span id="playback-label">播放进度</span><span id="position-label" class="time">00:00 / 00:00</span></div>
 <div id="timeline" class="timeline" aria-busy="false"><div id="loop-band" class="loop-band" hidden></div><div id="played" class="played"></div><div id="marks" class="marks debug-only"></div><div class="loading-shimmer"></div><div class="switch-flash"></div><input id="seek" type="range" min="0" max="1" value="0" step="0.01" disabled aria-label="播放进度"></div>
-<div class="playback-hints"><span id="loop-status" aria-live="polite"></span><span id="variant-status" aria-live="polite"></span></div></div>
+<div class="playback-hints">
+<button id="loop-toggle" class="hint-control hint-control-left" disabled popovertarget="loop-menu" aria-label="曲内循环设置" title="曲内循环设置"><span class="hint-icon" data-icon="repeat" aria-hidden="true"></span><span class="hint-copy"><span class="hint-label">曲内循环</span><span id="loop-status" class="hint-status" aria-live="polite"></span></span><span id="loop-badge" class="control-badge"></span></button>
+<button id="variant-toggle" class="hint-control hint-control-right" disabled aria-label="切换变体" title="此曲目没有可切换变体"><span class="hint-copy"><span class="hint-label">变体</span><span id="variant-status" class="hint-status" aria-live="polite"></span></span><span id="variant-badge" class="control-badge"></span><span class="hint-icon" data-icon="variant" aria-hidden="true"></span></button>
+</div></div>
 <div class="transport">
-<button id="restart" class="icon-button" disabled aria-label="从头播放" title="从头播放" data-icon="restart"></button>
+<button id="info-toggle" class="icon-button" disabled aria-label="曲目信息" title="曲目信息" data-icon="info"></button>
+<button id="previous" class="icon-button" disabled aria-label="上一首" title="上一首" data-icon="previous"></button>
 <button id="play" class="icon-button play" disabled aria-label="播放" title="播放" data-icon="play"></button>
-<button id="loop-toggle" class="icon-button" disabled popovertarget="loop-menu" aria-label="曲内循环设置" title="曲内循环设置"><span data-icon="repeat"></span><span id="loop-badge" class="control-badge"></span></button>
-<button id="variant-toggle" class="icon-button" disabled aria-label="切换变体" title="此曲目没有可切换变体"><span data-icon="variant"></span><span id="variant-badge" class="control-badge"></span></button>
+<button id="next" class="icon-button" disabled aria-label="下一首" title="下一首" data-icon="next"></button>
+<button id="playback-order" class="icon-button" aria-label="播放顺序：顺序播放" title="播放顺序：顺序播放（点击切换）"><span id="playback-order-icon" data-icon="order" aria-hidden="true"></span></button>
 </div>
 <label class="volume"><span data-icon="volume" aria-hidden="true"></span><span class="sr-only">音量</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="音量"></label>
 <p id="player-status" class="status" role="status"></p>
@@ -32,12 +36,12 @@
 </main>
 <footer>音乐来自你的本地游戏<span>无需上传</span></footer>
 <div id="loop-menu" class="popover" popover><h3>曲内循环</h3><div class="loop-controls"><label>播放方式<select id="loop-mode"><option value="off">关闭</option><option value="finite" selected>有限次数</option><option value="infinite">无限循环</option></select></label><label id="limit-label" class="limit">播放<input id="loop-limit" type="number" min="1" max="999" step="1" value="3" aria-label="循环区间播放次数">遍</label></div><p class="muted">次数包含循环段首次播放，结束后继续尾声。</p><p id="loop-range" class="muted"></p></div>
+<dialog id="track-info-menu" aria-labelledby="track-info-heading"><div class="dialog-heading"><h2 id="track-info-heading">曲目信息</h2><button id="track-info-close" class="icon-button" aria-label="关闭曲目信息" title="关闭曲目信息" data-icon="close"></button></div><p id="info-category" class="muted"></p><h3 id="info-title">让旋律继续</h3><p id="info-description" class="info-description">选择一首曲目后，这里会显示曲目信息。</p><dl id="info-summary"></dl><details id="track-details" class="debug-only" hidden><summary>技术信息</summary><span id="codec" class="badge"></span><dl id="metadata"></dl></details></dialog>
 <dialog id="settings-menu"><div class="dialog-heading"><h2>设置</h2><button id="settings-close" class="icon-button" aria-label="关闭设置" data-icon="close"></button></div>
 <label class="setting-row"><span>多声道试听<small>手动选择声道或立体声轨</small></span><input id="show-channels" type="checkbox"></label>
-<label class="setting-row"><span>显示技术信息<small>资源路径、编码详情与切换节点</small></span><input id="show-debug" type="checkbox"></label>
+<label class="setting-row"><span>显示技术信息<small>在曲目信息中显示资源路径、编码详情与切换节点</small></span><input id="show-debug" type="checkbox"></label>
 <section id="channel-panel" class="channel-panel" hidden aria-label="多声道试听"><div class="channel-heading"><h3>多声道试听</h3><button id="channel-all" class="button">全部声道</button></div><p id="channel-help" class="muted"></p><div id="channel-presets" class="channel-presets"></div><div id="channel-buttons" class="channel-buttons"></div></section>
-<details id="track-details" class="debug-only" hidden><summary>资源信息</summary><span id="codec" class="badge"></span><dl id="metadata"></dl></details>
 <p class="muted settings-footnote">选择本体与资料片所在的 sqpack 目录。音频只在本机读取。</p>
 </dialog>
-<script type="module" src="./app.js?v=20260913-6"></script>
+<script type="module" src="./app.js?v=20260913-7"></script>
 </body></html>
