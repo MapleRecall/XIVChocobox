@@ -19,6 +19,7 @@
       <div class="library-heading"><h1>我的曲库</h1><span id="track-count" class="muted">尚未载入</span></div>
       <label class="search"><span class="sr-only">搜索曲名或资源名</span><input id="search" type="search" placeholder="搜索曲名或资源名" disabled></label>
       <div class="filters" role="group" aria-label="曲目类型"><button class="filter active" data-kind="orchestrion" aria-pressed="true">管弦乐谱</button><button class="filter" data-kind="bgm" aria-pressed="false">游戏配乐</button></div>
+      <div class="feature-filters" role="group" aria-label="曲目特征筛选"><button type="button" class="feature-filter" data-feature="loop" aria-pressed="false" title="只显示有循环的曲目"><span class="feature-icon loop-icon" aria-hidden="true">↻</span><span class="sr-only">有循环</span></button><button type="button" class="feature-filter" data-feature="variant" aria-pressed="false" title="只显示有变体的曲目"><span class="feature-icon variant-icon" aria-hidden="true">♬</span><span class="sr-only">有变体</span></button></div>
       <p id="library-status" class="status" role="status">选择 FF14 安装内的 sqpack 文件夹，包含本体与资料片；也支持只选其中的 ffxiv。文件只在本机读取。</p>
       <div id="tracks" class="tracks" aria-label="曲目列表"></div>
     </section>

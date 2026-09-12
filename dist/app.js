@@ -3,7 +3,7 @@ import { Player } from './lib/player.js';
 const $ = id => document.getElementById(id);
 const worker = new Worker(new URL('./catalog-worker.js', import.meta.url), { type: 'module' });
 const pending = new Map();
-let requestId = 0, catalog = [], filter = 'orchestrion', selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
+let requestId = 0, catalog = [], filter = 'orchestrion', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
 let libraryLabel = '', metadataScanId = 0, trackRows = new Map();
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
@@ -53,19 +53,29 @@ function hydrateMetadataCache() {
     if (cached.codec) track.codec = cached.codec;
   }
 }
-function trackMetadataLabel(track) {
-  if (!track.available) return '不可读取';
-  const metadata = track.metadata;
-  if (!metadata?.ready) return '正在读取曲目信息…';
-  if (metadata.error) return '格式暂不支持';
-  const parts = [Number.isFinite(metadata.duration) ? time(metadata.duration) : '时长未知'];
-  parts.push(metadata.hasLoop ? '有循环' : '无循环');
-  parts.push(metadata.hasVariant ? '有变体' : '无变体');
-  return parts.join(' · ');
+function trackFormat(track) {
+  if (!track.available) return '不可用';
+  if (!track.metadata?.ready) return '读取中…';
+  if (track.metadata.error) return track.metadata.codec || '不可用';
+  return track.metadata.codec || track.codec || '未知格式';
+}
+function trackDuration(track) {
+  return track.metadata?.ready && Number.isFinite(track.metadata.duration) ? time(track.metadata.duration) : '--:--';
+}
+function buildTrackMetadata(track) {
+  const metadata = document.createElement('span'); metadata.className = 'track-meta';
+  const format = document.createElement('span'); format.className = 'track-format'; format.textContent = trackFormat(track); metadata.append(format);
+  const ready = Boolean(track.metadata?.ready && !track.metadata.error);
+  const loop = document.createElement('span'); loop.className = 'track-icon loop-icon'; loop.textContent = '↻'; loop.title = ready ? (track.metadata.hasLoop ? '有循环' : '无循环') : '循环信息读取中'; loop.setAttribute('role', 'img'); loop.setAttribute('aria-label', loop.title); loop.classList.toggle('active', Boolean(ready && track.metadata.hasLoop)); metadata.append(loop);
+  const variant = document.createElement('span'); variant.className = 'track-icon variant-icon'; variant.textContent = '♬'; variant.title = ready ? (track.metadata.hasVariant ? '有变体' : '无变体') : '变体信息读取中'; variant.setAttribute('role', 'img'); variant.setAttribute('aria-label', variant.title); variant.classList.toggle('active', Boolean(ready && track.metadata.hasVariant)); metadata.append(variant);
+  return metadata;
 }
 function updateTrackRow(track) {
   const row = trackRows.get(track.id);
-  if (row) row.querySelector('.track-meta').textContent = trackMetadataLabel(track);
+  if (!row) return;
+  row.querySelector('.track-meta')?.replaceWith(buildTrackMetadata(track));
+  const duration = row.querySelector('.track-duration');
+  if (duration) duration.textContent = trackDuration(track);
 }
 function applyTrackMetadata(path, parsed, error = false) {
   const key = path.toLowerCase();
@@ -114,7 +124,7 @@ function startMetadataScan(kind = filter) {
 }
 function renderTracks() {
   const query = $('search').value.trim().toLocaleLowerCase();
-  const filtered = catalog.filter(t => t.kind === filter && `${t.title} ${t.path} ${t.rowId}`.toLocaleLowerCase().includes(query));
+  const filtered = catalog.filter(t => t.kind === filter && [...featureFilters].every(feature => t.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`]) && `${t.title} ${t.path} ${t.rowId}`.toLocaleLowerCase().includes(query));
   const fragment = document.createDocumentFragment();
   trackRows = new Map();
   for (const track of filtered) {
@@ -125,9 +135,9 @@ function renderTracks() {
     const content = document.createElement('span'); content.className = 'track-content';
     const name = document.createElement('span'); name.className = 'track-name'; name.textContent = track.title;
     const subtitle = document.createElement('span'); subtitle.className = 'track-subtitle'; subtitle.textContent = track.available ? (track.kind === 'orchestrion' ? track.path.split('/').pop().replace('.scd', '') : track.path) : track.unavailableReason;
-    const metadata = document.createElement('span'); metadata.className = 'track-meta'; metadata.textContent = trackMetadataLabel(track);
+    const metadata = buildTrackMetadata(track);
     content.append(name, subtitle, metadata); button.append(number, content);
-    if (track.codec || selected?.id === track.id) { const badge = document.createElement('span'); badge.className = 'track-tag'; badge.textContent = track.codec || '已选'; button.append(badge); }
+    const badge = document.createElement('span'); badge.className = 'track-tag track-duration'; badge.textContent = trackDuration(track); button.append(badge);
     button.addEventListener('click', () => selectTrack(track)); fragment.append(button); trackRows.set(track.id, button);
   }
   if (!filtered.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = catalog.length ? '没有找到匹配的曲目。' : '曲库将在这里显示。'; fragment.append(p); }
@@ -286,6 +296,12 @@ document.querySelectorAll('[data-kind]').forEach(button => button.addEventListen
   filter = button.dataset.kind;
   document.querySelectorAll('[data-kind]').forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', String(b === button)); });
   renderTracks(); $('tracks').scrollTop = 0; startMetadataScan(filter);
+}));
+document.querySelectorAll('[data-feature]').forEach(button => button.addEventListener('click', () => {
+  const feature = button.dataset.feature;
+  if (featureFilters.has(feature)) featureFilters.delete(feature); else featureFilters.add(feature);
+  button.classList.toggle('active', featureFilters.has(feature)); button.setAttribute('aria-pressed', String(featureFilters.has(feature)));
+  renderTracks(); $('tracks').scrollTop = 0;
 }));
 $('play').addEventListener('click', () => { if (player.state.playing && player.context.state === 'running') player.pause(); else player.play().catch(e => status('player-status', e.message, true)); });
 $('restart').addEventListener('click', () => player.restart().catch(e => status('player-status', e.message, true)));
