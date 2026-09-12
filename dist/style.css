@@ -20,6 +20,8 @@ svg{pointer-events:none}
 .hint-status{display:block;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted)}
 #variant-status{color:var(--cyan);text-align:inherit}
 .hint-control .control-badge{position:static;min-width:0;padding:0 3px;background:transparent;line-height:16px;font-size:11px}
+.hint-status{line-height:22px}
+.hint-control-right .hint-status{text-align:right}
 .transport{gap:16px;margin:18px 0 16px}
 .transport>.icon-button:not(.play){width:46px;height:46px}
 .track-info-menu{width:min(520px,90vw)}

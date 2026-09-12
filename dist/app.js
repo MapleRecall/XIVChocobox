@@ -1,5 +1,5 @@
-import { Player } from './lib/player.js?v=20260913-7';
-import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js?v=20260913-7';
+import { Player } from './lib/player.js?v=20260913-8';
+import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js?v=20260913-8';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -437,6 +437,7 @@ function renderState(state) {
   const looping = Boolean(info?.loop && player.limit !== 1);
   $('loop-toggle').classList.toggle('active', looping);
   $('loop-badge').textContent = looping ? (player.limit === Infinity ? '∞' : String(player.limit)) : '';
+  $('loop-toggle').title = info?.loop ? `曲内循环：${player.limit === Infinity ? '无限循环' : player.limit === 1 ? '关闭' : `${player.limit} 遍`}（点击设置）` : '此曲目没有可用的曲内循环区间';
   syncLoading();
   if (!info) $('loop-status').textContent = loading ? '正在读取循环信息…' : '等待选择曲目';
   else if (!info.loop) $('loop-status').textContent = '此曲目无循环区间';

@@ -20,8 +20,8 @@
 <div class="timeline-panel"><div class="timeline-caption"><span id="playback-label">播放进度</span><span id="position-label" class="time">00:00 / 00:00</span></div>
 <div id="timeline" class="timeline" aria-busy="false"><div id="loop-band" class="loop-band" hidden></div><div id="played" class="played"></div><div id="marks" class="marks debug-only"></div><div class="loading-shimmer"></div><div class="switch-flash"></div><input id="seek" type="range" min="0" max="1" value="0" step="0.01" disabled aria-label="播放进度"></div>
 <div class="playback-hints">
-<button id="loop-toggle" class="hint-control hint-control-left" disabled popovertarget="loop-menu" aria-label="曲内循环设置" title="曲内循环设置"><span class="hint-icon" data-icon="repeat" aria-hidden="true"></span><span class="hint-copy"><span class="hint-label">曲内循环</span><span id="loop-status" class="hint-status" aria-live="polite"></span></span><span id="loop-badge" class="control-badge"></span></button>
-<button id="variant-toggle" class="hint-control hint-control-right" disabled aria-label="切换变体" title="此曲目没有可切换变体"><span class="hint-copy"><span class="hint-label">变体</span><span id="variant-status" class="hint-status" aria-live="polite"></span></span><span id="variant-badge" class="control-badge"></span><span class="hint-icon" data-icon="variant" aria-hidden="true"></span></button>
+<button id="loop-toggle" class="hint-control hint-control-left" disabled popovertarget="loop-menu" aria-label="曲内循环设置" title="曲内循环设置"><span class="hint-icon" data-icon="repeat" aria-hidden="true"></span><span id="loop-status" class="hint-status" aria-live="polite"></span><span id="loop-badge" class="control-badge"></span></button>
+<button id="variant-toggle" class="hint-control hint-control-right" disabled aria-label="切换变体" title="此曲目没有可切换变体"><span id="variant-status" class="hint-status" aria-live="polite"></span><span id="variant-badge" class="control-badge"></span><span class="hint-icon" data-icon="variant" aria-hidden="true"></span></button>
 </div></div>
 <div class="transport">
 <button id="info-toggle" class="icon-button" disabled aria-label="曲目信息" title="曲目信息" data-icon="info"></button>
@@ -43,5 +43,5 @@
 <section id="channel-panel" class="channel-panel" hidden aria-label="多声道试听"><div class="channel-heading"><h3>多声道试听</h3><button id="channel-all" class="button">全部声道</button></div><p id="channel-help" class="muted"></p><div id="channel-presets" class="channel-presets"></div><div id="channel-buttons" class="channel-buttons"></div></section>
 <p class="muted settings-footnote">选择本体与资料片所在的 sqpack 目录。音频只在本机读取。</p>
 </dialog>
-<script type="module" src="./app.js?v=20260913-7"></script>
+<script type="module" src="./app.js?v=20260913-8"></script>
 </body></html>
