@@ -1,5 +1,5 @@
-import { Player } from './lib/player.js?v=20260913-8';
-import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js?v=20260913-8';
+import { Player } from './lib/player.js?v=20260913-9';
+import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js?v=20260913-9';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -254,7 +254,7 @@ function renderTracks() {
   updateNavigationControls();
 }
 async function openDirectory(directory) {
-  opening = true; $('open-directory').disabled = true;
+  opening = true; $('directory-select').disabled = true;
   metadataScanId++;
   selection++; player.clear(); selected = null; info = null; duration = 0; loading = false;
   resetTrack(); renderTracks();
@@ -262,21 +262,21 @@ async function openDirectory(directory) {
   presetMetadata = await presetReady;
   catalog = result.tracks.map(track => ({ ...track, title: cleanTitle(track.title) })); hydrateMetadataCache(); $('search').disabled = false;
   libraryLabel = `${directory.name} · ${result.repositories.join('、')}`;
-  $('open-directory').textContent = '重新选择目录';
+  $('directory-path').textContent = libraryLabel;
+  $('directory-path').title = `已选择：${libraryLabel}`;
   status('library-status', '');
   startMetadataScan(filter);
 }
 async function chooseDirectory() {
   if (opening) return;
   try {
-    let directory = lastDirectoryHandle;
-    if (!directory || await directoryPermission(directory, true) !== 'granted') directory = await window.showDirectoryPicker({ mode: 'read', id: 'xiv-sqpack' });
+    const directory = await window.showDirectoryPicker({ mode: 'read', id: 'xiv-sqpack' });
     lastDirectoryHandle = directory;
     try { await saveDirectoryHandle(directory); } catch { /* IndexedDB can be unavailable in private browsing. */ }
     await openDirectory(directory);
   } catch (error) {
     if (error.name !== 'AbortError') status('library-status', error.message, true);
-  } finally { opening = false; $('open-directory').disabled = !window.showDirectoryPicker; renderTracks(); }
+  } finally { opening = false; $('directory-select').disabled = !window.showDirectoryPicker; renderTracks(); }
 }
 function renderTrackInfo() {
   const track = selected;
@@ -401,7 +401,6 @@ function updateVariantControls(state = player.state) {
   button.classList.toggle('pending', enabled && Number.isInteger(state.variantPending));
   if (!enabled) {
     $('variant-status').textContent = '';
-    $('variant-badge').textContent = '';
     button.title = '此曲目没有启用变体切换'; lastVariant = null;
     return;
   }
@@ -410,7 +409,6 @@ function updateVariantControls(state = player.state) {
   if (channelSelection?.join(',') !== selected.join(',')) { channelSelection = selected; updateChannelSelectionButtons(); }
   button.title = `切换到变体 ${variant === 0 ? '2' : '1'}`;
   button.setAttribute('aria-label', button.title);
-  $('variant-badge').textContent = String(variant + 1);
   if (lastVariant !== null && lastVariant !== variant && !loading && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     $('timeline').querySelector('.switch-flash').animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.15 }, { opacity: 0 }], { duration: 600 });
   }
@@ -436,7 +434,6 @@ function renderState(state) {
   $('loop-toggle').disabled = !info?.loop || loading;
   const looping = Boolean(info?.loop && player.limit !== 1);
   $('loop-toggle').classList.toggle('active', looping);
-  $('loop-badge').textContent = looping ? (player.limit === Infinity ? '∞' : String(player.limit)) : '';
   $('loop-toggle').title = info?.loop ? `曲内循环：${player.limit === Infinity ? '无限循环' : player.limit === 1 ? '关闭' : `${player.limit} 遍`}（点击设置）` : '此曲目没有可用的曲内循环区间';
   syncLoading();
   if (!info) $('loop-status').textContent = loading ? '正在读取循环信息…' : '等待选择曲目';
@@ -466,7 +463,7 @@ $('track-info-menu').addEventListener('click', event => { if (event.target === $
 for (const id of ['show-channels', 'show-debug']) $(id).addEventListener('change', applySettings);
 try { const saved = JSON.parse(localStorage.getItem('xiv-player-display')); $('show-channels').checked = Boolean(saved?.channels); $('show-debug').checked = Boolean(saved?.debug); } catch {}
 document.body.classList.toggle('show-debug', $('show-debug').checked);
-$('open-directory').addEventListener('click', chooseDirectory);
+$('directory-select').addEventListener('click', chooseDirectory);
 $('search').addEventListener('input', renderTracks);
 document.querySelectorAll('[data-kind]').forEach(button => button.addEventListener('click', () => {
   filter = button.dataset.kind;
@@ -504,7 +501,7 @@ try {
   }
 } catch { /* Invalid preferences leave defaults intact. */ }
 try { localStorage.removeItem('xiv-player-playback-positions-v1'); } catch {}
-if (!window.showDirectoryPicker || !window.isSecureContext) { $('open-directory').disabled = true; status('library-status', '请在新版 Chrome / Edge 中通过 HTTPS 或 localhost 打开此页面。', true); }
+if (!window.showDirectoryPicker || !window.isSecureContext) { $('directory-select').disabled = true; status('library-status', '请在新版 Chrome / Edge 中通过 HTTPS 或 localhost 打开此页面。', true); }
 renderTracks();
 async function restoreDirectory() {
   if (!window.showDirectoryPicker || !window.isSecureContext) return;
@@ -515,11 +512,12 @@ async function restoreDirectory() {
     if (await directoryPermission(handle) === 'granted') {
       await openDirectory(handle);
     } else {
-      $('open-directory').textContent = '恢复上次目录';
+      $('directory-path').textContent = `${handle.name}（需要重新授权）`;
+      $('directory-path').title = '点击“重新选择”以重新授权或选择其他目录';
       status('library-status', `已记住上次目录“${handle.name}”，点击按钮恢复访问。`);
     }
   } catch { /* A stale handle is harmless; the next explicit directory choice replaces it. */ }
-  finally { opening = false; $('open-directory').disabled = !window.showDirectoryPicker; renderTracks(); }
+  finally { opening = false; $('directory-select').disabled = !window.showDirectoryPicker; renderTracks(); }
 }
 void restoreDirectory();
 
