@@ -2,9 +2,9 @@ export class Player {
   constructor(onState, onError) {
     this.onState = onState; this.onError = onError;
     this.context = null; this.node = null; this.gain = null;
-    this.trackId = 0; this.volume = 0.7; this.limit = 3; this.channelSelection = null; this.channelCount = 0;
+    this.trackId = 0; this.volume = 0.7; this.limit = 3; this.channelSelection = null; this.channelSelectionMode = 'mono'; this.channelCount = 0;
     this.state = { position: 0, pass: 1, playing: false, finished: false };
-    this.channelSelection = null; this.channelCount = 0;
+    this.channelSelection = null; this.channelSelectionMode = 'mono'; this.channelCount = 0;
   }
   async activate() {
     if (!this.context) {
@@ -27,7 +27,7 @@ export class Player {
       oldNode.disconnect(); this.node = null;
     }
     this.state = { position: 0, pass: 1, playing: false, finished: false };
-    this.channelSelection = null; this.channelCount = 0;
+    this.channelSelection = null; this.channelSelectionMode = 'mono'; this.channelCount = 0;
     this.onState(this.state);
   }
   async load(info, stillCurrent = () => true) {
@@ -39,7 +39,7 @@ export class Player {
     catch { throw new Error('浏览器未能解码这首 OGG。请确认游戏已更新完成，并尝试重新选择目录。'); }
     if (!stillCurrent()) return false;
     const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i).slice());
-    this.channelCount = channels.length; this.channelSelection = null;
+    this.channelCount = channels.length; this.channelSelection = null; this.channelSelectionMode = 'mono';
     const rate = decoded.sampleRate;
     // decodeAudioData resamples to context rate. Original sample indices must
     // be converted, otherwise a 44.1 kHz track loops incorrectly at 48 kHz.
@@ -65,10 +65,11 @@ export class Player {
     if (!Number.isInteger(channel) || channel < -1 || channel >= this.channelCount) throw new Error('无效的声道选择。');
     this.setChannelSelection(channel < 0 ? null : [channel]);
   }
-  setChannelSelection(channels) {
+  setChannelSelection(channels, mode = 'mono') {
     if (channels !== null && (!Array.isArray(channels) || !channels.length || channels.some(channel => !Number.isInteger(channel) || channel < 0 || channel >= this.channelCount))) throw new Error('无效的声道组合。');
-    this.channelSelection = channels ? [...new Set(channels)] : null;
-    this.node?.port.postMessage({ type: 'channel-set', channels: this.channelSelection });
+    if (!['mono', 'pair'].includes(mode)) throw new Error('无效的声道试听模式。');
+    this.channelSelection = channels ? [...new Set(channels)] : null; this.channelSelectionMode = mode;
+    this.node?.port.postMessage({ type: 'channel-set', channels: this.channelSelection, mode });
   }
   setVolume(volume) { this.volume = volume; if (this.gain) this.gain.gain.setTargetAtTime(volume, this.context.currentTime, 0.02); }
 }
