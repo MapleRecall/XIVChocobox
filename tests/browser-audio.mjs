@@ -43,9 +43,9 @@ export async function verifyAudio() {
     const timeout = setTimeout(() => reject(new Error('solo AudioWorklet load timeout')), 10000);
     soloNode.port.onmessage = ({ data }) => { if (data.type === 'error') { clearTimeout(timeout); reject(new Error(data.message)); } else if (data.playing) { clearTimeout(timeout); resolve(); } };
     soloNode.port.postMessage({ type: 'load', trackId: 2, channels: [Float32Array.from([.1,.2]), Float32Array.from([.3,.4]), Float32Array.from([.5,.6])], loop: null, limit: 1 });
-    soloNode.port.postMessage({ type: 'channel', channel: 2 }); soloNode.port.postMessage({ type: 'play' });
+  soloNode.port.postMessage({ type: 'channel-set', channels: [0, 2] }); soloNode.port.postMessage({ type: 'play' });
   });
   const soloOutput = (await soloOffline.startRendering()).getChannelData(0);
-  assert(Math.abs(soloOutput[0] - .5) < 1e-6 && Math.abs(soloOutput[1] - .6) < 1e-6, 'solo channel not copied to front output');
-  return { browser: navigator.userAgent, decodes: results, worklet: 'finite 3 passes, gapless, tail and stop verified', soloChannel: 'channel 3 copied to front outputs' };
+  assert(Math.abs(soloOutput[0] - .3) < 1e-6 && Math.abs(soloOutput[1] - .4) < 1e-6, 'variant channels not mixed into front output');
+  return { browser: navigator.userAgent, decodes: results, worklet: 'finite 3 passes, gapless, tail and stop verified', variantChannels: 'channels 1 and 3 averaged to front outputs' };
 }

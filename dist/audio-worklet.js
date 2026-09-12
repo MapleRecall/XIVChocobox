@@ -2,23 +2,24 @@ import { LoopCursor } from './lib/loop-cursor.js';
 
 class OrchestrionProcessor extends AudioWorkletProcessor {
   constructor() {
-    super(); this.channels = []; this.cursor = new LoopCursor(); this.framesSinceUpdate = 0; this.trackId = 0; this.soloChannel = -1; this.disposed = false;
+    super(); this.channels = []; this.cursor = new LoopCursor(); this.framesSinceUpdate = 0; this.trackId = 0; this.channelSelection = null; this.disposed = false;
     this.port.onmessage = ({ data }) => {
       try {
         if (data.type === 'load') {
-          this.channels = data.channels; this.trackId = data.trackId; this.soloChannel = -1;
+          this.channels = data.channels; this.trackId = data.trackId; this.channelSelection = null;
           this.cursor = new LoopCursor(this.channels[0].length, data.loop, data.limit ?? Infinity);
         } else if (data.type === 'dispose') {
-          this.channels = []; this.cursor = new LoopCursor(); this.disposed = true;
+          this.channels = []; this.cursor = new LoopCursor(); this.channelSelection = null; this.disposed = true;
           this.port.postMessage({ type: 'disposed' }); return;
         } else if (data.type === 'clear') {
-          this.channels = []; this.cursor = new LoopCursor(); this.trackId = data.trackId;
+          this.channels = []; this.cursor = new LoopCursor(); this.trackId = data.trackId; this.channelSelection = null;
         } else if (data.type === 'play') this.cursor.play();
         else if (data.type === 'pause') this.cursor.pause();
         else if (data.type === 'seek') this.cursor.seek(data.position);
         else if (data.type === 'restart') { this.cursor.reset(); this.cursor.play(); }
         else if (data.type === 'limit') this.cursor.setLimit(data.limit ?? Infinity);
-        else if (data.type === 'channel') this.soloChannel = Number.isInteger(data.channel) ? data.channel : -1;
+        else if (data.type === 'channel') this.channelSelection = Number.isInteger(data.channel) && data.channel >= 0 ? [data.channel] : null;
+        else if (data.type === 'channel-set') this.channelSelection = Array.isArray(data.channels) ? data.channels.filter(Number.isInteger) : null;
         this.report();
       } catch (error) { this.port.postMessage({ type: 'error', message: error.message }); }
     };
@@ -30,8 +31,12 @@ class OrchestrionProcessor extends AudioWorkletProcessor {
     const wasPlaying = this.cursor.playing, previousPass = this.cursor.pass;
     for (let i = 0; i < output[0].length; i++) {
       if (!this.cursor.playing || !this.channels.length) break;
-      if (this.soloChannel >= 0 && this.soloChannel < this.channels.length) {
-        const sample = this.channels[this.soloChannel][this.cursor.position] ?? 0;
+      if (this.channelSelection?.length) {
+        let sample = 0, selected = 0;
+        for (const channel of this.channelSelection) {
+          if (channel >= 0 && channel < this.channels.length) { sample += this.channels[channel][this.cursor.position] ?? 0; selected++; }
+        }
+        sample /= selected || 1;
         for (let channel = 0; channel < output.length; channel++) output[channel][i] = channel < 2 ? sample : 0;
       } else {
         for (let channel = 0; channel < output.length; channel++) output[channel][i] = this.channels[channel]?.[this.cursor.position] ?? 0;

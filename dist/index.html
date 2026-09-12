@@ -33,6 +33,7 @@
       <div class="transport"><button id="restart" class="button" disabled aria-label="从头播放">从头</button><button id="play" class="button play" disabled>播放</button><label class="volume">音量<input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="音量"></label></div>
       <section id="channel-panel" class="channel-panel" hidden aria-label="多声道试听">
         <div class="channel-heading"><div><h3>多声道试听</h3><p id="channel-help" class="muted">完整混音</p></div><button id="channel-all" class="button channel-choice active">全部声道</button></div>
+        <div id="channel-presets" class="channel-presets" role="group" aria-label="游戏变体预设"></div>
         <div id="channel-buttons" class="channel-buttons" role="group" aria-label="选择要单独试听的声道"></div>
         <p class="channel-help">独听会把选中的声道复制到左右前声道，方便用耳机检查；不会改变资源文件。</p>
       </section>

@@ -3,7 +3,7 @@ import { Player } from './lib/player.js';
 const $ = id => document.getElementById(id);
 const worker = new Worker(new URL('./catalog-worker.js', import.meta.url), { type: 'module' });
 const pending = new Map();
-let requestId = 0, catalog = [], filter = 'orchestrion', selected = null, info = null, duration = 0, selection = 0, dragging = false, soloChannel = -1;
+let requestId = 0, catalog = [], filter = 'orchestrion', selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 const player = new Player(renderState, message => status('player-status', message, true));
 
@@ -71,7 +71,7 @@ function resetTrack() {
   $('codec').textContent = '本地播放'; $('loop-band').hidden = true; $('marks').replaceChildren();
   $('loop-range').textContent = '选曲后显示'; $('track-details').hidden = true;
   $('play').disabled = true; $('restart').disabled = true; $('seek').disabled = true;
-  $('channel-panel').hidden = true; $('channel-buttons').replaceChildren(); soloChannel = -1;
+  $('channel-panel').hidden = true; $('channel-presets').replaceChildren(); $('channel-buttons').replaceChildren(); channelSelection = null;
   renderState({ position: 0, pass: 1, playing: false, finished: false });
 }
 async function selectTrack(track) {
@@ -123,19 +123,37 @@ function channelName(index, count) {
 function renderChannels(count) {
   if (count < 2) { $('channel-panel').hidden = true; return; }
   $('channel-panel').hidden = false; $('channel-help').textContent = count === 6 ? '当前资源为 6 声道；名称按常见 5.1 顺序显示。' : `${count} 声道资源`;
+  const presets = document.createDocumentFragment();
+  if (count === 6) {
+    const definitions = [
+      ['变体 1 · FL + FC', [0, 2]],
+      ['变体 2 · FR + SL', [1, 4]],
+      ['过渡强音 · LFE + SR', [3, 5]],
+    ];
+    for (const [label, channels] of definitions) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'channel-button'; button.textContent = label; button.dataset.channels = channels.join(','); button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', () => setAudioSelection(channels, label)); presets.append(button);
+    }
+  }
+  $('channel-presets').replaceChildren(presets);
   const fragment = document.createDocumentFragment();
   for (let index = 0; index < count; index++) {
-    const button = document.createElement('button'); button.type = 'button'; button.className = 'channel-button'; button.textContent = channelName(index, count); button.setAttribute('aria-pressed', 'false');
-    button.addEventListener('click', () => setSoloChannel(index)); fragment.append(button);
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'channel-button'; button.textContent = channelName(index, count); button.dataset.channels = String(index); button.setAttribute('aria-pressed', 'false');
+    button.addEventListener('click', () => setAudioSelection([index], channelName(index, count))); fragment.append(button);
   }
-  $('channel-buttons').replaceChildren(fragment); $('channel-all').classList.add('active'); $('channel-all').setAttribute('aria-pressed', 'true');
+  $('channel-buttons').replaceChildren(fragment); updateChannelSelectionButtons();
 }
-function setSoloChannel(channel) {
-  if (!info || channel < -1 || channel >= info.channels) throw new Error('无效的声道选择。');
-  soloChannel = channel; player.setChannel(channel);
-  $('channel-all').classList.toggle('active', channel === -1); $('channel-all').setAttribute('aria-pressed', String(channel === -1));
-  document.querySelectorAll('.channel-button').forEach((button, index) => { const active = index === channel; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
-  status('player-status', channel === -1 ? '正在播放完整多声道混音。' : `正在独听 ${channelName(channel, info.channels)}；该声道已复制到左右前声道。`);
+function updateChannelSelectionButtons() {
+  const selected = channelSelection?.join(',') || '';
+  $('channel-all').classList.toggle('active', !channelSelection); $('channel-all').setAttribute('aria-pressed', String(!channelSelection));
+  document.querySelectorAll('[data-channels]').forEach(button => { const active = button.dataset.channels === selected; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
+}
+function setAudioSelection(channels, label = '') {
+  if (!info) throw new Error('请先选择曲目。');
+  const normalized = channels === null ? null : [...new Set(channels)].filter(channel => Number.isInteger(channel));
+  if (normalized && (!normalized.length || normalized.some(channel => channel < 0 || channel >= info.channels))) throw new Error('无效的声道组合。');
+  channelSelection = normalized; player.setChannelSelection(normalized); updateChannelSelectionButtons();
+  status('player-status', normalized ? `正在试听 ${label || normalized.map(channel => channelName(channel, info.channels)).join(' + ')}；已复制到左右前声道。` : '正在播放完整多声道混音。');
 }
 function renderState(state) {
   if (!dragging) { $('seek').value = String(state.position); $('played').style.width = `${duration ? Math.min(100, state.position / duration * 100) : 0}%`; }
@@ -166,7 +184,7 @@ $('restart').addEventListener('click', () => player.restart().catch(e => status(
 $('seek').addEventListener('input', () => { dragging = true; renderState(player.state); $('played').style.width = `${Number($('seek').value) / duration * 100}%`; });
 $('seek').addEventListener('change', () => { dragging = false; player.seek(Number($('seek').value)); });
 $('volume').addEventListener('input', () => player.setVolume(Number($('volume').value)));
-$('channel-all').addEventListener('click', () => setSoloChannel(-1));
+$('channel-all').addEventListener('click', () => setAudioSelection(null));
 for (const id of ['loop-mode', 'loop-limit']) $(id).addEventListener('change', () => {
   if (!$('loop-limit').checkValidity()) { $('loop-limit').reportValidity(); return; }
   configureLoop($('loop-mode').value, Number($('loop-limit').value));
@@ -186,7 +204,8 @@ if (document.modelContext?.registerTool) {
   const tools = [
     { name: 'get_player_state', title: '读取播放状态', description: '读取已选择曲目、播放位置和循环设置。', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: () => ({ track: selected?.title || null, ...player.state, loopMode: player.limit === Infinity ? 'infinite' : 'finite', limit: Number.isFinite(player.limit) ? player.limit : null }) },
     { name: 'set_loop_playback', title: '设置循环次数', description: '改变循环模式；有限次数包含循环段首次播放。', inputSchema: { type: 'object', properties: { mode: { enum: ['finite', 'infinite'] }, limit: { type: 'integer', minimum: 1, maximum: 999 } }, required: ['mode', 'limit'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { configureLoop(input.mode, input.limit); return { mode: input.mode, limit: input.limit }; } },
-    { name: 'set_audio_channel', title: '选择试听声道', description: '选择完整多声道混音，或独听某一个声道。独听会复制到左右前声道。', inputSchema: { type: 'object', properties: { channel: { type: 'integer', minimum: -1, maximum: 7 } }, required: ['channel'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { setSoloChannel(input.channel); return { channel: input.channel, mode: input.channel < 0 ? 'all' : 'solo' }; } },
+    { name: 'set_audio_channel', title: '选择试听声道', description: '选择完整多声道混音，或独听某一个声道。独听会复制到左右前声道。', inputSchema: { type: 'object', properties: { channel: { type: 'integer', minimum: -1, maximum: 7 } }, required: ['channel'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { setAudioSelection(input.channel < 0 ? null : [input.channel]); return { channel: input.channel, mode: input.channel < 0 ? 'all' : 'solo' }; } },
+    { name: 'set_audio_variant', title: '选择游戏变体', description: '在六声道资源中选择已识别的游戏变体声道组：变体 1 为 FL+FC，变体 2 为 FR+SL，过渡强音为 LFE+SR。', inputSchema: { type: 'object', properties: { variant: { enum: ['all', 'one', 'two', 'transition'] } }, required: ['variant'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { const groups = { all: null, one: [0, 2], two: [1, 4], transition: [3, 5] }; if (groups[input.variant] && (!info || info.channels !== 6)) throw new Error('当前曲目不是六声道资源。'); setAudioSelection(groups[input.variant], input.variant); return { variant: input.variant, channels: groups[input.variant] }; } },
   ];
   for (const tool of tools) { try { Promise.resolve(document.modelContext.registerTool(tool, { signal: lifecycle.signal })).catch(() => {}); } catch { /* Optional API. */ } }
   window.addEventListener('pagehide', () => lifecycle.abort(), { once: true });

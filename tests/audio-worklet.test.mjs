@@ -36,6 +36,15 @@ test('solo channel is copied to front outputs and other outputs are muted', () =
   assert.deepEqual([...output[0]], [21,22,23]); assert.deepEqual([...output[1]], [21,22,23]); assert(output[2].every(value => value === 0));
 });
 
+test('game variant channel groups are averaged into a stereo analysis signal', () => {
+  const processor = new Processor();
+  processor.port.onmessage({ data: { type: 'load', channels: [Float32Array.from([2,4]), Float32Array.from([10,20]), Float32Array.from([6,8])], loop: null, limit: 1, trackId: 1 } });
+  processor.port.onmessage({ data: { type: 'channel-set', channels: [0,2] } });
+  processor.port.onmessage({ data: { type: 'play' } });
+  const output = [new Float32Array(2), new Float32Array(2), new Float32Array(2)]; processor.process([], [output]);
+  assert.deepEqual([...output[0]], [4,6]); assert.deepEqual([...output[1]], [4,6]); assert(output[2].every(value => value === 0));
+});
+
 test('changing tracks disposes the processor and releases PCM', () => {
   const processor = new Processor();
   processor.port.onmessage({ data: { type: 'load', channels: [new Float32Array(1000)], loop: null, limit: 1, trackId: 1 } });
