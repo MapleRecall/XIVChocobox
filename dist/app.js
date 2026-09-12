@@ -1,6 +1,6 @@
-import { Player } from './lib/player.js?v=20260913-12';
-import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-12';
-import { iconTexturePaths } from './lib/tex.js?v=20260913-12';
+import { Player } from './lib/player.js?v=20260913-13';
+import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-13';
+import { iconTexturePaths } from './lib/tex.js?v=20260913-13';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -164,6 +164,7 @@ function hydrateMetadataCache() {
     track.coverTextureId = coverIds[0] ?? null;
     track.coverTexturePath = coverPaths[0] ?? null;
     track.dungeons = Array.isArray(preset?.dungeons) ? preset.dungeons : [];
+    track.uses = Array.isArray(preset?.uses) ? preset.uses : [];
     if (!cached) continue;
     track.metadata = { ready: true, ...cached };
     if (cached.codec) track.codec = cached.codec;
@@ -309,7 +310,8 @@ function renderTrackInfo() {
     ['曲内循环', info.loop ? `${time(info.loop.start / info.sampleRate, true)} — ${time(info.loop.end / info.sampleRate, true)}` : '无'],
     ['变体切换', info.channels === 6 ? '支持' : '无'],
   ] : [];
-  if (hasInfo && track.dungeons?.length) rows.push(['对应副本', track.dungeons.join('、')]);
+  const usage = trackUsage(track);
+  if (hasInfo && usage !== '-') rows.push(['用途', usage]);
   const fragment = document.createDocumentFragment();
   for (const [key, value] of rows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; fragment.append(dt, dd); }
   $('info-summary').replaceChildren(fragment);

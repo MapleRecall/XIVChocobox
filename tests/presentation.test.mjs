@@ -21,6 +21,7 @@ test('preset catalog summaries retain parser loop and variant decisions', async 
     assert(!('ogg' in value));
     assert('coverTextureId' in value && 'coverTexturePath' in value);
     assert(Array.isArray(value.dungeons));
+    assert(Array.isArray(value.uses));
     assert(Array.isArray(value.coverTextureIds) && Array.isArray(value.coverTexturePaths));
     if (value.supported) {
       assert(value.duration > 0);
@@ -35,4 +36,6 @@ test('preset catalog summaries retain parser loop and variant decisions', async 
   assert.deepEqual(tracks['music/ffxiv/bgm_con_crystaltower_01.scd'].coverTextureIds, [112033]);
   assert.deepEqual(tracks['music/ffxiv/bgm_dungeon_ish_02.scd'].dungeons, ['泽梅尔要塞']);
   assert.deepEqual(tracks['music/ffxiv/bgm_dungeon_ish_02.scd'].coverTextureIds, [112013]);
+  assert.deepEqual(tracks['music/ffxiv/bgm_ban_moogle_king.scd'].uses, ['莫古力贤王歼灭战']);
+  assert.deepEqual(tracks['music/ffxiv/bgm_ban_moogle_king.scd'].coverTextureIds, [112031]);
 });

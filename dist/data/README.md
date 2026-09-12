@@ -7,6 +7,7 @@ the selected local resource again, so the snapshot does not control audio timing
 
 Each record may include:
 - `dungeons`: matched instance/duty names from the local `InstanceContent`/`ContentFinderCondition` direct relation or the `TerritoryType.BGM` → `BGMSituation` → `BGM` scene relation; territory `PlaceName` is preferred for the displayed name.
+- `uses`: aggregated usage text for the list subtitle. It prefers local instance/territory mappings and falls back to the curated BGM usage snapshot when a battle or event track has no direct Excel relationship.
 - `coverTextureIds`: numeric game icon/texture identifiers, one per matched instance.
 - `coverTexturePaths`: exact SqPack `.tex` paths derived from those identifiers.
 - `coverTextureId` and `coverTexturePath`: first-item compatibility fields.

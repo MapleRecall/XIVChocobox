@@ -6,7 +6,7 @@
 
 1. 通过 HTTPS 静态站点或本地 HTTP 服务打开网页。
 2. 首次打开时在“设置”里的“资源目录”点击“重新选择”，选择游戏根目录或 `game` 文件夹；程序会自动寻找其中的 `game/sqpack`，并读取 `ffxiv` 和 `ex1`～`ex5` 等已存在的资料片目录。也可以直接把文件夹拖进页面。
-3. 按管弦乐谱或游戏配乐名称搜索、选择曲目播放。游戏配乐名称按 BGM ID 对照表显示，找不到对照时回退资源名；列表副标题显示曲目的用途信息，没有匹配时显示 `-`。
+3. 按管弦乐谱或游戏配乐名称搜索、选择曲目播放。游戏配乐名称按 BGM ID 对照表显示，找不到对照时回退资源名；列表副标题显示曲目的用途信息，没有匹配时显示 `-`，并优先使用本机表关系、再回退到已固化的 BGM 用途整理。
 4. 列表会逐步显示格式、时长，并用循环/变体图标标出曲目特征；两个图标按钮可筛选有循环或有变体的曲目。这些摘要在后台读取并缓存在浏览器本地，不保存音频。进度条金色区域是原始循环区间，细线是资源中的 MARK。可拖动进度条跳转。
 5. 设置循环段播放 1～999 遍，或无限循环。次数包含循环段首次播放；有限次数结束后继续尾声，然后按播放顺序决定是否切换下一首。
 6. 选中多声道曲目后，播放器会显示“多声道试听”。“全部声道”保留原始混音；六声道曲目默认播放变体 1（FL+FC），可点击“切换变体”在下一个 MARK 节点切换到变体 2（FR+SL）并叠加过渡强音（LFE+SR）。也可以点击单个 FL/FR/FC/LFE/SL/SR 声道独听。
@@ -32,9 +32,9 @@ npm run dev
 实际到达节点并切换变体时，进度条闪光。减少动态效果偏好会关闭动画。
 曲名显示时移除对照表末尾的星号注记。
 
-`dist/data/track-metadata.json` 包含 2174 条本机已验证资源的摘要，供首次加载曲库与筛选使用；其中 271 条曲目已从本机 `InstanceContent` / `TerritoryType` / `BGMSituation` / `ContentFinderCondition` / `PlaceName` 表匹配到副本名，239 条含副本封面 ID。导出器同时支持 `InstanceContent.BGM` 的直接关系，以及 `TerritoryType.BGM → BGMSituation → BGM` 的场景关系；副本名称优先使用区域 `PlaceName`，图片 ID 使用对应 `ContentFinderCondition.Image`。
+`dist/data/track-metadata.json` 包含 2174 条本机已验证资源的摘要，供首次加载曲库与筛选使用；其中 271 条曲目已从本机 `InstanceContent` / `TerritoryType` / `BGMSituation` / `ContentFinderCondition` / `PlaceName` 表匹配到副本名，240 条含副本封面 ID，1005 条含曲目用途信息。导出器同时支持 `InstanceContent.BGM` 的直接关系，以及 `TerritoryType.BGM → BGMSituation → BGM` 的场景关系；副本名称优先使用区域 `PlaceName`，图片 ID 使用对应 `ContentFinderCondition.Image`；若战斗曲在当前客户端没有直接 Excel 关系，则回退到固化的 BGM 用途整理。
 未收录曲目仍在后台读取并缓存；实际播放总是重新解析本地音频的循环点。
-每条记录包含 `dungeons`、`coverTextureIds` 与 `coverTexturePaths`（并保留单数兼容字段）；曲目选中后会从所选游戏资源读取并解码首个可用 `.tex` 封面。刷新预置数据时会重新生成副本匹配，并保留没有自动匹配到的手工封面映射：
+每条记录包含 `dungeons`、`uses`、`coverTextureIds` 与 `coverTexturePaths`（并保留单数兼容字段）；曲目选中后会从所选游戏资源读取并解码首个可用 `.tex` 封面。刷新预置数据时会重新生成副本匹配、用途补充，并保留没有自动匹配到的手工封面映射：
 
 ```sh
 npm run export:metadata -- "<游戏根目录或 game 文件夹路径>"

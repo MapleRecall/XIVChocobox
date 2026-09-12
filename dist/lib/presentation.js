@@ -1,7 +1,7 @@
 export function cleanTitle(value = '') {
   return value.split(' / ').map(part => part.replace(/\*+\s*$/, '').trim()).join(' / ');
 }
-const USAGE_FIELDS = ['dungeons', 'maps', 'seasonalEvents'];
+const USAGE_FIELDS = ['uses', 'dungeons', 'maps', 'seasonalEvents', 'events'];
 export function trackUsage(track = {}) {
   const values = USAGE_FIELDS.flatMap(field => Array.isArray(track[field]) ? track[field] : [])
     .map(value => String(value).trim()).filter(Boolean);
