@@ -25,7 +25,33 @@ npm run dev
 
 网页每次打开需要选择目录，仅申请只读权限。曲库、音乐读取、解包和解码均在本地；没有上传接口。只将循环和音量偏好保存在浏览器存储中，不复制整个游戏目录。
 
-## 第一版边界
+## 界面与预置数据
+
+主播放器提供图标式播放/暂停、从头、曲内循环菜单和节点变体切换。
+设置菜单中的多声道试听、技术信息默认关闭。载入音乐时进度条显示载入效果；
+实际到达节点并切换变体时，进度条闪光。减少动态效果偏好会关闭动画。
+曲名显示时移除对照表末尾的星号注记。
+
+`dist/data/track-metadata.json` 包含 2174 条本机已验证资源的摘要，供首次加载曲库与筛选使用。
+未收录曲目仍在后台读取并缓存；实际播放总是重新解析本地音频的循环点。
+每条记录预留 `coverTextureId` 与 `coverTexturePath`，用于后续的游戏纹理封面读取。
+当前封面是占位区域，尚未实现 TEX 纹理解码。刷新预置数据时保留手工填写的封面映射：
+
+```sh
+npm run export:metadata -- "<game/sqpack 路径>"
+```
+
+## GitHub Pages
+
+这是普通 Git 仓库和纯静态项目，无需 Sites 服务即可运行。发布目录为 `dist/`；
+所有脚本、Worker 和预置数据均通过相对路径引用，支持 GitHub Pages 项目子路径。
+
+将仓库推送到 GitHub 后，在 Settings → Pages 中选择 GitHub Actions，
+再手动运行 Actions → Publish GitHub Pages。工作流只上传 `dist/`，不上传游戏文件。
+工作流目前仅手动触发，推送代码不会自动发布。仓库的 Pages 功能需要在账户与仓库设置中可用。
+现有 `.openai/hosting.json` 只用于 Sites 托管，不影响 GitHub Pages。
+
+## 格式支持与边界
 
 - 支持 SqPack `.index2` / `.index` 查找、标准资源分块解压，以及 EXH/EXD 表读取。
 - 中文优先，游戏未提供中文数据时回退英语等可用语言；管弦乐谱曲名来自本机 Orchestrion / OrchestrionPath，BGM 曲名使用按 RowId 固化的 OrchestrionPlugin 对照快照，BGM 表用于补全资源曲库。

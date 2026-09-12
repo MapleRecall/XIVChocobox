@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node tools/serve.mjs",
     "test": "node --test tests/*.test.mjs",
-    "verify:game": "node tools/verify-game.mjs"
+    "verify:game": "node tools/verify-game.mjs",
+    "export:metadata": "node tools/export-metadata.mjs"
   }
 }

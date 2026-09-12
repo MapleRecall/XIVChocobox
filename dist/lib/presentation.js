@@ -1,0 +1,22 @@
+export function cleanTitle(value = '') {
+  return value.split(' / ').map(part => part.replace(/\*+\s*$/, '').trim()).join(' / ');
+}
+export function summarizeMetadata(parsed) {
+  return { ready: true, duration: Number.isFinite(parsed.duration) ? parsed.duration : null,
+    hasLoop: Boolean(parsed.loop), hasVariant: Boolean(parsed.supported && parsed.channels === 6),
+    codec: parsed.codec || null, channels: parsed.channels || 0 };
+}
+const paths = {
+  play: '<path d="m8 5 11 7-11 7Z"/>',
+  pause: '<path d="M8 5v14M16 5v14"/>',
+  restart: '<path d="M5 5v14M19 5 7 12l12 7Z"/>',
+  repeat: '<path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/>',
+  variant: '<path d="M3 6h5c6 0 2 12 8 12h5m-4-4 4 4-4 4M3 18h5c2 0 3-2 4-6s2-6 4-6h5m-4-4 4 4-4 4"/>',
+  volume: '<path d="m11 5-6 4H2v6h3l6 4Zm4 3a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
+  settings: '<path d="M4 7h16M4 17h16"/><circle cx="8" cy="7" r="3"/><circle cx="16" cy="17" r="3"/>',
+  music: '<path d="M9 18V5l12-3v13M9 9l12-3"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="15" rx="3" ry="3"/>',
+  close: '<path d="m6 6 12 12M6 18 18 6"/>',
+};
+export function setIcon(element, name) {
+  element.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || paths.music) + '</svg>';
+}
