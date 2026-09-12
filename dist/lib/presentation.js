@@ -2,8 +2,9 @@ export function cleanTitle(value = '') {
   return value.split(' / ').map(part => part.replace(/\*+\s*$/, '').trim()).join(' / ');
 }
 const USAGE_FIELDS = ['uses', 'dungeons', 'maps', 'seasonalEvents', 'events'];
-export function trackUsage(track = {}) {
-  const values = USAGE_FIELDS.flatMap(field => Array.isArray(track[field]) ? track[field] : [])
+export function trackUsage(track) {
+  const source = track && typeof track === 'object' ? track : {};
+  const values = USAGE_FIELDS.flatMap(field => Array.isArray(source[field]) ? source[field] : [])
     .map(value => String(value).trim()).filter(Boolean);
   return [...new Set(values)].join('、') || '-';
 }

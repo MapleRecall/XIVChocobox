@@ -1,6 +1,6 @@
-import { Player } from './lib/player.js?v=20260913-13';
-import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-13';
-import { iconTexturePaths } from './lib/tex.js?v=20260913-13';
+import { Player } from './lib/player.js?v=20260913-14';
+import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-14';
+import { iconTexturePaths } from './lib/tex.js?v=20260913-14';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);

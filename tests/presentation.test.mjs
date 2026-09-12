@@ -10,6 +10,7 @@ test('cleans annotations from each merged title but preserves interior stars', (
 });
 test('formats extensible track usage and falls back to a dash', () => {
   assert.equal(trackUsage({}), '-');
+  assert.equal(trackUsage(null), '-');
   assert.equal(trackUsage({ dungeons: ['泽梅尔要塞'], maps: ['西萨纳兰'], seasonalEvents: ['季节活动', '季节活动'] }), '泽梅尔要塞、西萨纳兰、季节活动');
 });
 test('preset catalog summaries retain parser loop and variant decisions', async () => {
