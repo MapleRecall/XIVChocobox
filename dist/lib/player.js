@@ -22,7 +22,7 @@ export class Player {
     if (!this.context) {
       this.context = new AudioContext({ latencyHint: 'playback' });
       this.gain = this.context.createGain(); this.gain.gain.value = this.volume; this.gain.connect(this.context.destination);
-      this.ready = this.context.audioWorklet.addModule(new URL('../audio-worklet.js?v=20260913-5', import.meta.url));
+      this.ready = this.context.audioWorklet.addModule(new URL('../audio-worklet.js?v=20260913-6', import.meta.url));
       this.context.onstatechange = () => {
         if (this.context.state === 'suspended' && this.state.playing) this.onError('浏览器暂停了音频，请点击播放继续。');
       };
@@ -33,6 +33,7 @@ export class Player {
   clear() {
     this.trackId++;
     this.playbackCommand++; this.playbackIntent = false;
+    this.setOutputEnabled(false);
     if (this.node) {
       const oldNode = this.node;
       oldNode.port.onmessage = ({ data }) => { if (data.type === 'disposed') oldNode.port.close(); };
@@ -85,10 +86,24 @@ export class Player {
     const command = ++this.playbackCommand; this.playbackIntent = true;
     await this.activate();
     if (command !== this.playbackCommand || !this.playbackIntent) return false;
+    this.setOutputEnabled(true);
     this.node?.port.postMessage({ type: 'play' }); return true;
+  }
+  setOutputEnabled(enabled) {
+    if (!this.gain || !this.context) return;
+    const now = this.context.currentTime;
+    this.gain.gain.cancelScheduledValues(now);
+    this.gain.gain.setValueAtTime(enabled ? this.volume : 0, now);
+  }
+  isPlaying() {
+    if (this.playbackIntent || this.state.playing) return true;
+    // A delayed Worklet report can briefly leave both flags false while the
+    // running context is already emitting the current buffer.
+    return Boolean(this.node && this.context?.state === 'running' && !this.state.finished && this.state.position > 0);
   }
   pause() {
     this.playbackCommand++; this.playbackIntent = false;
+    this.setOutputEnabled(false);
     this.node?.port.postMessage({ type: 'pause' });
     this.state = { ...this.state, playing: false }; this.onState(this.state);
     // Also suspend the destination context. This makes pause deterministic
@@ -99,13 +114,14 @@ export class Player {
     // The AudioContext may be suspended independently of the Worklet cursor
     // (tab throttling, output-device changes, or browser autoplay policy).
     // Playback intent must therefore follow the cursor state, not context.state.
-    if (this.playbackIntent || this.state.playing) { this.pause(); return false; }
+    if (this.isPlaying()) { this.pause(); return false; }
     return (await this.play()) !== false;
   }
   async restart() {
     const command = ++this.playbackCommand; this.playbackIntent = true;
     await this.activate();
     if (command !== this.playbackCommand || !this.playbackIntent) return false;
+    this.setOutputEnabled(true);
     this.node?.port.postMessage({ type: 'restart' }); return true;
   }
   seek(seconds, pass = 1) { this.node?.port.postMessage({ type: 'seek', position: Math.round(seconds * this.context.sampleRate), pass }); }
@@ -121,5 +137,5 @@ export class Player {
     this.node?.port.postMessage({ type: 'channel-set', channels: this.channelSelection, mode });
   }
   requestVariantToggle() { if (!this.variantMode || !this.node) return false; this.node.port.postMessage({ type: 'variant-toggle' }); return true; }
-  setVolume(volume) { this.volume = volume; if (this.gain) this.gain.gain.setTargetAtTime(volume, this.context.currentTime, 0.02); }
+  setVolume(volume) { this.volume = volume; if (this.gain) this.gain.gain.setTargetAtTime(this.playbackIntent || this.state.playing ? volume : 0, this.context.currentTime, 0.02); }
 }

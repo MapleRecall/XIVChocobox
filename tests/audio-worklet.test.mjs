@@ -70,6 +70,17 @@ test('pause remains responsive after transition audio ends', () => {
   assert.equal(processor.cursor.playing, false);
 });
 
+test('pause remains responsive before entering the loop interval', () => {
+  const processor = new Processor();
+  processor.port.onmessage({ data: { type: 'load', channels: [Float32Array.from([1, 2, 3, 4, 5, 6])], loop: { start: 4, end: 6 }, limit: 3, trackId: 1 } });
+  processor.port.onmessage({ data: { type: 'play' } });
+  processor.process([], [[new Float32Array(2)]]);
+  assert.equal(processor.cursor.position, 2); assert.equal(processor.cursor.playing, true);
+  processor.port.onmessage({ data: { type: 'pause' } });
+  processor.process([], [[new Float32Array(2)]]);
+  assert.equal(processor.cursor.position, 2); assert.equal(processor.cursor.playing, false);
+});
+
 test('changing tracks disposes the processor and releases PCM', () => {
   const processor = new Processor();
   processor.port.onmessage({ data: { type: 'load', channels: [new Float32Array(1000)], loop: null, limit: 1, trackId: 1 } });

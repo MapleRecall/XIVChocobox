@@ -1,4 +1,4 @@
-import { Player } from './lib/player.js';
+import { Player } from './lib/player.js?v=20260913-6';
 import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
@@ -322,7 +322,7 @@ function setAudioSelection(channels, label = '', mode = 'mono') {
 function renderState(state) {
   if (!dragging) { $('seek').value = String(state.position); $('played').style.width = `${duration ? Math.min(100, state.position / duration * 100) : 0}%`; }
   $('position-label').textContent = `${time(dragging ? Number($('seek').value) : state.position)} / ${time(duration)}`;
-  const playable = Boolean(info && !loading && player.node);
+  const playable = Boolean(info && !loading);
   $('play').disabled = !playable; $('restart').disabled = !playable;
   const playLabel = state.playing ? '暂停' : state.finished ? '重播' : '播放';
   $('play').title = playLabel; $('play').setAttribute('aria-label', playLabel);
