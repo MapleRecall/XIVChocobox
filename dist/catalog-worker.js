@@ -2,6 +2,7 @@ import { SqPack } from './lib/sqpack.js';
 import { buildCatalog } from './lib/excel.js';
 import { parseScd } from './lib/scd.js';
 import { decodeHca } from './lib/hca/decode.js';
+import { decodeTexture } from './lib/tex.js';
 
 let pack;
 function metadata(parsed) {
@@ -41,6 +42,10 @@ self.onmessage = async ({ data }) => {
       if (!pack) throw new Error('请先选择资源目录。');
       const result = metadata(parseScd(await pack.read(data.path)));
       self.postMessage({ id: data.id, type: 'result', result });
+    } else if (data.type === 'texture') {
+      if (!pack) throw new Error('请先选择资源目录。');
+      const result = decodeTexture(await pack.read(data.path));
+      self.postMessage({ id: data.id, type: 'result', result }, [result.rgba.buffer]);
     }
   } catch (error) { self.postMessage({ id: data.id, type: 'error', message: error.message }); }
 };

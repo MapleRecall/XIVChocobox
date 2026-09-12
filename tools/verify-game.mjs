@@ -4,7 +4,7 @@ import { buildCatalog } from '../dist/lib/excel.js';
 import { parseScd } from '../dist/lib/scd.js';
 
 const directory = process.argv[2];
-if (!directory) throw new Error('Usage: npm run verify:game -- <sqpack/ffxiv directory> [--all]');
+if (!directory) throw new Error('Usage: npm run verify:game -- <game root or game directory> [--all]');
 const pack = await openGame(directory);
 const catalog = await buildCatalog(pack, console.log);
 const available = catalog.tracks.filter(t => t.available);

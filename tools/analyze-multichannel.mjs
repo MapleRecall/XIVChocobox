@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { openGame } from './game-files.mjs';
 import { parseScd } from '../dist/lib/scd.js';
 
-const root = process.argv[2] || 'C:/Games/FFXIV/game/sqpack';
+const root = process.argv[2] || 'C:/Games/FFXIV';
 const paths = process.argv.slice(3).length ? process.argv.slice(3) : [
   'music/ffxiv/BGM_Con_CrystalTower_01.scd',
   'music/ffxiv/BGM_Con_CrystalTower_02.scd',

@@ -5,13 +5,16 @@ It contains parsed metadata only, never compressed audio or PCM. The browser loa
 snapshot before supplementing missing entries in the background; playback always parses
 the selected local resource again, so the snapshot does not control audio timing.
 
-Each record reserves:
-- `coverTextureId`: null or a future numeric game icon/texture identifier.
-- `coverTexturePath`: null or an exact SqPack texture resource path (for textures without a numeric ID).
+Each record may include:
+- `dungeons`: matched instance/duty names from the local `InstanceContent` and `ContentFinderCondition` sheets.
+- `coverTextureIds`: numeric game icon/texture identifiers, one per matched instance.
+- `coverTexturePaths`: exact SqPack `.tex` paths derived from those identifiers.
+- `coverTextureId` and `coverTexturePath`: first-item compatibility fields.
 
-Both fields are optional cover mappings, not sound IDs. The current player carries them to
-the cover placeholder but does not decode textures yet. No numeric ID-to-path rule is
-assumed: general game textures do not all have a universal numeric identifier.
+These fields are optional mappings, not sound IDs. The player reads and decodes the first
+available game texture at runtime; unsupported or missing textures fall back to the built-in
+cover. The numeric ID-to-path rule is the FFXIV icon convention `ui/icon/NNN000/NNNNNN.tex`.
 
-To rebuild from a local installation, run `node tools/export-metadata.mjs <sqpack>`.
-The export should preserve any curated cover mappings when refreshing the snapshot.
+To rebuild from a local installation, run `node tools/export-metadata.mjs <game-root-or-game-folder>`.
+The export regenerates instance mappings and preserves curated cover mappings when no automatic
+mapping is available.

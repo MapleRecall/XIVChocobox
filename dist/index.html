@@ -12,7 +12,7 @@
 <div class="library-heading"><h1>我的曲库</h1><span id="track-count" class="muted">尚未载入</span></div>
 <label class="search"><span class="sr-only">搜索曲名或资源名</span><input id="search" type="search" placeholder="搜索音乐" disabled></label>
 <div class="library-filters"><div class="filters" role="group" aria-label="曲目类型"><button class="filter active" data-kind="orchestrion" aria-pressed="true">管弦乐谱</button><button class="filter" data-kind="bgm" aria-pressed="false">游戏配乐</button></div><div class="feature-filters" role="group" aria-label="曲目特征筛选"><button class="feature-filter" data-feature="loop" aria-pressed="false" title="只显示有循环的曲目" aria-label="有循环" data-icon="repeat"></button><button class="feature-filter" data-feature="variant" aria-pressed="false" title="只显示有变体的曲目" aria-label="有变体" data-icon="variant"></button></div></div>
-<p id="library-status" class="status" role="status">选择游戏的 sqpack 文件夹，即可载入曲库。</p><div id="tracks" class="tracks" aria-label="曲目列表"></div>
+<p id="library-status" class="status" role="status">选择游戏根目录或 game 文件夹，即可载入曲库。</p><div id="tracks" class="tracks" aria-label="曲目列表"></div>
 </section>
 <section class="player" aria-label="播放器"><div class="player-content">
 <div id="cover" class="cover" role="img" aria-label="默认音乐封面"><span data-icon="music" aria-hidden="true"></span><span class="cover-caption">XIV Chocobox</span></div>
@@ -34,7 +34,7 @@
 <p id="player-status" class="status" role="status"></p>
 </div></section>
 </main>
-<footer>音乐来自你的本地游戏<span>v21</span></footer>
+<footer>音乐来自你的本地游戏<span>v22</span></footer>
 <div id="loop-menu" class="popover" popover><h3>曲内循环</h3><div class="loop-controls"><label>播放方式<select id="loop-mode"><option value="off">关闭</option><option value="finite" selected>有限次数</option><option value="infinite">无限循环</option></select></label><label id="limit-label" class="limit">播放<input id="loop-limit" type="number" min="1" max="999" step="1" value="3" aria-label="循环区间播放次数">遍</label></div><p class="muted">次数包含循环段首次播放，结束后继续尾声。</p><p id="loop-range" class="muted"></p></div>
 <dialog id="track-info-menu" aria-labelledby="track-info-heading"><div class="dialog-heading"><h2 id="track-info-heading">曲目信息</h2><button id="track-info-close" class="icon-button" aria-label="关闭曲目信息" title="关闭曲目信息" data-icon="close"></button></div><p id="info-category" class="muted"></p><h3 id="info-title">让旋律继续</h3><p id="info-description" class="info-description">选择一首曲目后，这里会显示曲目信息。</p><dl id="info-summary"></dl><details id="track-details" class="debug-only" hidden><summary>技术信息</summary><span id="codec" class="badge"></span><dl id="metadata"></dl></details></dialog>
 <dialog id="settings-menu"><div class="dialog-heading"><h2>设置</h2><button id="settings-close" class="icon-button" aria-label="关闭设置" data-icon="close"></button></div>
@@ -42,7 +42,7 @@
 <label class="setting-row"><span>多声道试听<small>手动选择声道或立体声轨</small></span><input id="show-channels" type="checkbox"></label>
 <label class="setting-row"><span>显示技术信息<small>在曲目信息中显示资源路径、编码详情与切换节点</small></span><input id="show-debug" type="checkbox"></label>
 <section id="channel-panel" class="channel-panel" hidden aria-label="多声道试听"><div class="channel-heading"><h3>多声道试听</h3><button id="channel-all" class="button">全部声道</button></div><p id="channel-help" class="muted"></p><div id="channel-presets" class="channel-presets"></div><div id="channel-buttons" class="channel-buttons"></div></section>
-<p class="muted settings-footnote">选择本体与资料片所在的 sqpack 目录。音频只在本机读取。</p>
+<p class="muted settings-footnote">选择游戏根目录或 game 文件夹，程序会自动寻找其中的 game/sqpack。音频只在本机读取；也可以直接拖入文件夹。</p>
 </dialog>
-<script type="module" src="./app.js?v=20260913-9"></script>
+<script type="module" src="./app.js?v=20260913-10"></script>
 </body></html>

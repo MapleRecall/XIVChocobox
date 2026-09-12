@@ -1,5 +1,6 @@
-import { Player } from './lib/player.js?v=20260913-9';
-import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js?v=20260913-9';
+import { Player } from './lib/player.js?v=20260913-10';
+import { cleanTitle, summarizeMetadata, setIcon } from './lib/presentation.js?v=20260913-10';
+import { iconTexturePaths } from './lib/tex.js?v=20260913-10';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -8,6 +9,7 @@ const pending = new Map();
 let requestId = 0, catalog = [], filter = 'orchestrion', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
 let libraryLabel = '', metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
+let coverObjectUrl = null, coverRequestId = 0;
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
 let metadataCache = readMetadataCache(), cacheWriteTimer = null;
 const PLAYBACK_ORDERS = [
@@ -155,8 +157,13 @@ function hydrateMetadataCache() {
     const preset = presetMetadata[path];
     const local = metadataCache[path];
     const cached = local && !local.error ? local : (preset ? summarizeMetadata(preset) : null);
-    track.coverTextureId = preset?.coverTextureId ?? null;
-    track.coverTexturePath = preset?.coverTexturePath ?? null;
+    const coverIds = Array.isArray(preset?.coverTextureIds) ? preset.coverTextureIds : preset?.coverTextureId ? [preset.coverTextureId] : [];
+    const coverPaths = Array.isArray(preset?.coverTexturePaths) ? preset.coverTexturePaths : preset?.coverTexturePath ? [preset.coverTexturePath] : coverIds.flatMap(iconTexturePaths);
+    track.coverTextureIds = coverIds;
+    track.coverTexturePaths = coverPaths;
+    track.coverTextureId = coverIds[0] ?? null;
+    track.coverTexturePath = coverPaths[0] ?? null;
+    track.dungeons = Array.isArray(preset?.dungeons) ? preset.dungeons : [];
     if (!cached) continue;
     track.metadata = { ready: true, ...cached };
     if (cached.codec) track.codec = cached.codec;
@@ -291,12 +298,16 @@ function renderTrackInfo() {
     ['曲内循环', info.loop ? `${time(info.loop.start / info.sampleRate, true)} — ${time(info.loop.end / info.sampleRate, true)}` : '无'],
     ['变体切换', info.channels === 6 ? '支持' : '无'],
   ] : [];
+  if (hasInfo && track.dungeons?.length) rows.push(['对应副本', track.dungeons.join('、')]);
   const fragment = document.createDocumentFragment();
   for (const [key, value] of rows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; fragment.append(dt, dd); }
   $('info-summary').replaceChildren(fragment);
 }
 function resetTrack() {
   lastVariant = null;
+  coverRequestId++;
+  if (coverObjectUrl?.startsWith('blob:')) URL.revokeObjectURL(coverObjectUrl);
+  coverObjectUrl = null; $('cover').style.removeProperty('background-image'); $('cover').classList.remove('has-image');
   if ($('track-info-menu').open) $('track-info-menu').close();
   $('cover').dataset.textureId = String(selected?.coverTextureId ?? '');
   $('cover').dataset.texturePath = selected?.coverTexturePath ?? '';
@@ -362,6 +373,25 @@ async function loadSelected(track, current) {
   status('player-status', autoVariant ? '默认播放变体 1；点击“切换变体”会在下一个节点切换，并播放过渡音。' : info.loop ? '金色区域为原始循环区间。拖动可跳转；从头播放会重新计数。' : '这首曲目没有有效循环区间，将完整播放一次。');
   status('player-status', ''); applySettings();
   renderState(player.state); await player.play();
+  void loadCover(track, current);
+}
+async function loadCover(track, current) {
+  const requestToken = ++coverRequestId;
+  const paths = [...new Set((track.coverTexturePaths?.length ? track.coverTexturePaths : (track.coverTextureIds || []).flatMap(iconTexturePaths)).filter(Boolean))];
+  for (const path of paths) {
+    try {
+      const image = await request('texture', { path });
+      if (current !== selection || requestToken !== coverRequestId || selected !== track) return;
+      const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
+      const context = canvas.getContext('2d'); context.putImageData(new ImageData(new Uint8ClampedArray(image.rgba), image.width, image.height), 0, 0);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (current !== selection || requestToken !== coverRequestId || selected !== track) return;
+      const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/png');
+      if (coverObjectUrl?.startsWith('blob:')) URL.revokeObjectURL(coverObjectUrl);
+      coverObjectUrl = url; $('cover').style.backgroundImage = `url("${url}")`; $('cover').classList.add('has-image'); $('cover').setAttribute('aria-label', `${track.title} · 副本封面`);
+      return;
+    } catch { /* Missing or unsupported textures fall back to the built-in cover. */ }
+  }
 }
 function channelName(index, count) {
   const names = count === 6 ? ['FL（变体 1 · 左）', 'FR（变体 2 · 左）', 'FC（变体 1 · 右）', 'LFE（过渡 · 左）', 'SL（变体 2 · 右）', 'SR（过渡 · 右）'] : count === 2 ? ['L 左', 'R 右'] : Array.from({ length: count }, (_, i) => `Ch ${i + 1}`);
@@ -464,6 +494,32 @@ for (const id of ['show-channels', 'show-debug']) $(id).addEventListener('change
 try { const saved = JSON.parse(localStorage.getItem('xiv-player-display')); $('show-channels').checked = Boolean(saved?.channels); $('show-debug').checked = Boolean(saved?.debug); } catch {}
 document.body.classList.toggle('show-debug', $('show-debug').checked);
 $('directory-select').addEventListener('click', chooseDirectory);
+function setDragActive(active) { document.body.classList.toggle('drag-active', active); }
+async function handleDirectoryDrop(event) {
+  event.preventDefault(); setDragActive(false);
+  const item = [...(event.dataTransfer?.items || [])].find(entry => entry.kind === 'file');
+  if (!item) return;
+  let handle = null;
+  try { if (item.getAsFileSystemHandle) handle = await item.getAsFileSystemHandle(); } catch { /* The browser may reject a dropped handle. */ }
+  if (handle?.kind !== 'directory') {
+    const file = item.getAsFile?.();
+    const name = file?.name?.toLowerCase() || '';
+    status('library-status', name.endsWith('.lnk') || name.endsWith('.url') ? '浏览器无法从快捷方式本身取得文件夹权限，请直接拖入游戏根目录或 game 文件夹。' : '请直接拖入游戏根目录或 game 文件夹。', true);
+    return;
+  }
+  try {
+    if (handle.requestPermission && await handle.requestPermission({ mode: 'read' }) !== 'granted') throw new Error('未获得资源目录读取权限。');
+    lastDirectoryHandle = handle;
+    try { await saveDirectoryHandle(handle); } catch { /* IndexedDB can be unavailable in private browsing. */ }
+    await openDirectory(handle);
+  } catch (error) { status('library-status', error.message, true); }
+  finally { opening = false; $('directory-select').disabled = !window.showDirectoryPicker; renderTracks(); }
+}
+document.addEventListener('dragover', event => {
+  if ([...(event.dataTransfer?.items || [])].some(item => item.kind === 'file')) { event.preventDefault(); setDragActive(true); }
+});
+document.addEventListener('dragleave', event => { if (event.relatedTarget === null) setDragActive(false); });
+document.addEventListener('drop', event => { void handleDirectoryDrop(event); });
 $('search').addEventListener('input', renderTracks);
 document.querySelectorAll('[data-kind]').forEach(button => button.addEventListener('click', () => {
   filter = button.dataset.kind;

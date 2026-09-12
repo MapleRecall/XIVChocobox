@@ -1,7 +1,7 @@
 import { openGame } from './game-files.mjs';
 import { readSheet } from '../dist/lib/excel.js';
 
-const root = process.argv[2] || 'C:/Games/FFXIV/game/sqpack';
+const root = process.argv[2] || 'C:/Games/FFXIV';
 const pack = await openGame(root);
 const bgm = await readSheet(pack, 'BGM');
 const matches = [...bgm.rows.entries()].filter(([, row]) => String(row[0] || '').toLowerCase().includes('crystaltower'));

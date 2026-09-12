@@ -91,7 +91,7 @@ export async function buildCatalog(pack, progress = () => {}) {
   for (const track of tracks) {
     const location = await pack.locate(track.path);
     track.available = Boolean(location && pack.files.has(location.dat));
-    track.unavailableReason = track.available ? null : !track.path.toLowerCase().startsWith('music/ffxiv/') ? '资料片资源不可用，请选择完整 sqpack 目录' : '所选目录缺少资源';
+    track.unavailableReason = track.available ? null : !track.path.toLowerCase().startsWith('music/ffxiv/') ? '资料片资源不可用，请确认选择了完整游戏目录' : '所选目录缺少资源';
   }
   return { tracks, language: names.language, repositories: [...new Set([...pack.files.keys()].map(n => n.split('/')[0]))].sort() };
 }

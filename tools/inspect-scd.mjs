@@ -2,7 +2,7 @@ import { openGame } from './game-files.mjs';
 import { ascii, cstring, view } from '../dist/lib/binary.js';
 import { buildCatalog } from '../dist/lib/excel.js';
 
-const root = process.argv[2] || 'C:/Games/FFXIV/game/sqpack';
+const root = process.argv[2] || 'C:/Games/FFXIV';
 const requested = process.argv.slice(3);
 const pack = await openGame(root);
 const catalog = await buildCatalog(pack);

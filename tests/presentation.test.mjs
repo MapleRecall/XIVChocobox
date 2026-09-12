@@ -16,6 +16,8 @@ test('preset catalog summaries retain parser loop and variant decisions', async 
     assert.equal(path, path.toLowerCase());
     assert(!('ogg' in value));
     assert('coverTextureId' in value && 'coverTexturePath' in value);
+    assert(Array.isArray(value.dungeons));
+    assert(Array.isArray(value.coverTextureIds) && Array.isArray(value.coverTexturePaths));
     if (value.supported) {
       assert(value.duration > 0);
       assert.equal(value.duration, value.totalSamples / value.sampleRate);
@@ -25,4 +27,6 @@ test('preset catalog summaries retain parser loop and variant decisions', async 
   const tower = summarizeMetadata(tracks['music/ffxiv/bgm_con_crystaltower_02.scd']);
   assert(tower.ready && tower.hasLoop && tower.hasVariant);
   assert.equal(tower.channels, 6);
+  assert.deepEqual(tracks['music/ffxiv/bgm_con_crystaltower_01.scd'].dungeons, ['水晶塔 古代人迷宫']);
+  assert.deepEqual(tracks['music/ffxiv/bgm_con_crystaltower_01.scd'].coverTextureIds, [112033]);
 });

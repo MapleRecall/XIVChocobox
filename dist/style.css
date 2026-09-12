@@ -15,9 +15,11 @@ svg{pointer-events:none}
 #variant-status{color:var(--cyan);text-align:right}
 .hint-icon-button{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:30px;padding:6px;border:0;border-radius:50%;background:transparent;color:var(--muted)}
 .hint-icon-button:hover:not(:disabled){background:#34404b;color:var(--text)}
-.hint-icon-button.active{background:#3a3021;color:var(--accent)}
-.hint-icon-button.pending{background:#203a40;color:var(--cyan)}
+.hint-icon-button.active{background:transparent;color:var(--accent)}
+.hint-icon-button.pending{background:transparent;color:var(--cyan)}
 .hint-icon-button svg{width:18px;height:18px}
+.cover.has-image{background-size:cover;background-position:center}
+.cover.has-image>[data-icon="music"],.cover.has-image .cover-caption{display:none}
 .transport{gap:16px;margin:18px 0 16px}
 .transport>.icon-button:not(.play){width:46px;height:46px}
 .track-info-menu{width:min(520px,90vw)}
@@ -30,3 +32,4 @@ svg{pointer-events:none}
 .directory-setting>span{min-width:0;flex:1}
 .directory-setting small{overflow-wrap:anywhere;line-height:1.5}
 .show-debug .track-info-menu .debug-only:not([hidden]){display:block!important}
+.drag-active .workspace{outline:1px dashed var(--cyan);outline-offset:-8px}
