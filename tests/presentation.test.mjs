@@ -29,4 +29,6 @@ test('preset catalog summaries retain parser loop and variant decisions', async 
   assert.equal(tower.channels, 6);
   assert.deepEqual(tracks['music/ffxiv/bgm_con_crystaltower_01.scd'].dungeons, ['水晶塔 古代人迷宫']);
   assert.deepEqual(tracks['music/ffxiv/bgm_con_crystaltower_01.scd'].coverTextureIds, [112033]);
+  assert.deepEqual(tracks['music/ffxiv/bgm_dungeon_ish_02.scd'].dungeons, ['泽梅尔要塞']);
+  assert.deepEqual(tracks['music/ffxiv/bgm_dungeon_ish_02.scd'].coverTextureIds, [112013]);
 });

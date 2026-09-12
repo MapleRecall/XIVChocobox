@@ -32,7 +32,7 @@ npm run dev
 实际到达节点并切换变体时，进度条闪光。减少动态效果偏好会关闭动画。
 曲名显示时移除对照表末尾的星号注记。
 
-`dist/data/track-metadata.json` 包含 2174 条本机已验证资源的摘要，供首次加载曲库与筛选使用；其中 246 条曲目已从本机 `InstanceContent` / `ContentFinderCondition` 表匹配到副本名，215 条含副本封面 ID。
+`dist/data/track-metadata.json` 包含 2174 条本机已验证资源的摘要，供首次加载曲库与筛选使用；其中 271 条曲目已从本机 `InstanceContent` / `TerritoryType` / `BGMSituation` / `ContentFinderCondition` / `PlaceName` 表匹配到副本名，239 条含副本封面 ID。导出器同时支持 `InstanceContent.BGM` 的直接关系，以及 `TerritoryType.BGM → BGMSituation → BGM` 的场景关系；副本名称优先使用区域 `PlaceName`，图片 ID 使用对应 `ContentFinderCondition.Image`。
 未收录曲目仍在后台读取并缓存；实际播放总是重新解析本地音频的循环点。
 每条记录包含 `dungeons`、`coverTextureIds` 与 `coverTexturePaths`（并保留单数兼容字段）；曲目选中后会从所选游戏资源读取并解码首个可用 `.tex` 封面。刷新预置数据时会重新生成副本匹配，并保留没有自动匹配到的手工封面映射：
 

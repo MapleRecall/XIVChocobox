@@ -7,15 +7,19 @@ import { iconTexturePaths } from '../dist/lib/tex.js';
 const [directory, output = 'dist/data/track-metadata.json'] = process.argv.slice(2);
 if (!directory) throw new Error('Usage: node tools/export-metadata.mjs <game-root-or-game-folder> [output.json]');
 const INSTANCE_BGM_COLUMN = 4, CONDITION_CONTENT_COLUMN = 3, CONDITION_NAME_COLUMN = 43, CONDITION_IMAGE_COLUMN = 50;
+const TERRITORY_CONDITION_COLUMN = 10, TERRITORY_BGM_SITUATION_COLUMN = 19, TERRITORY_PLACE_COLUMN = 5, SITUATION_BGM_COLUMNS = [0, 1, 2, 3, 4];
 let previous = {};
 try { previous = JSON.parse(await readFile(output, 'utf8')).tracks || {}; }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
 const pack = await openGame(directory);
 const catalog = await buildCatalog(pack);
-let conditions = { rows: new Map() }, instanceContents = { rows: new Map() };
+let conditions = { rows: new Map() }, instanceContents = { rows: new Map() }, territories = { rows: new Map() }, bgmSituations = { rows: new Map() }, placeNames = { rows: new Map() };
 try {
   conditions = await readSheet(pack, 'ContentFinderCondition');
   instanceContents = await readSheet(pack, 'InstanceContent');
+  territories = await readSheet(pack, 'TerritoryType');
+  bgmSituations = await readSheet(pack, 'BGMSituation');
+  placeNames = await readSheet(pack, 'PlaceName');
 } catch (error) { console.warn(`副本匹配表不可用，将只导出音频信息：${error.message}`); }
 const conditionsByContent = new Map();
 for (const [id, row] of conditions.rows) {
@@ -26,12 +30,25 @@ for (const [id, row] of conditions.rows) {
   matches.push({ id, name, imageId }); conditionsByContent.set(contentId, matches);
 }
 const contextsByBgm = new Map();
+function addContext(bgmId, context) {
+  if (!Number.isInteger(bgmId) || bgmId <= 0) return;
+  const matches = contextsByBgm.get(bgmId) || [];
+  if (!matches.some(item => item.key === context.key)) matches.push(context);
+  contextsByBgm.set(bgmId, matches);
+}
 for (const [instanceContentId, row] of instanceContents.rows) {
   const bgmId = row[INSTANCE_BGM_COLUMN], contexts = conditionsByContent.get(instanceContentId);
   if (!Number.isInteger(bgmId) || bgmId <= 0 || !contexts) continue;
-  const matches = contextsByBgm.get(bgmId) || [];
-  for (const context of contexts) if (!matches.some(item => item.id === context.id)) matches.push(context);
-  contextsByBgm.set(bgmId, matches);
+  for (const context of contexts) addContext(bgmId, { ...context, key: `instance:${context.id}` });
+}
+for (const [territoryId, row] of territories.rows) {
+  const conditionId = row[TERRITORY_CONDITION_COLUMN], situation = bgmSituations.rows.get(row[TERRITORY_BGM_SITUATION_COLUMN]), condition = conditions.rows.get(conditionId);
+  if (!Number.isInteger(conditionId) || conditionId <= 0 || !condition || !situation) continue;
+  const placeName = placeNames.rows.get(row[TERRITORY_PLACE_COLUMN])?.[0]?.trim();
+  const name = placeName || (typeof condition[CONDITION_NAME_COLUMN] === 'string' ? condition[CONDITION_NAME_COLUMN].trim() : '');
+  const imageId = Number.isInteger(condition[CONDITION_IMAGE_COLUMN]) && condition[CONDITION_IMAGE_COLUMN] > 0 ? condition[CONDITION_IMAGE_COLUMN] : null;
+  if (!name && !imageId) continue;
+  for (const column of SITUATION_BGM_COLUMNS) addContext(situation[column], { key: `territory:${territoryId}:${conditionId}`, id: conditionId, name, imageId });
 }
 const bgmIdsByPath = new Map();
 for (const track of catalog.tracks) if (track.kind === 'bgm') bgmIdsByPath.set(track.path.toLowerCase(), track.bgmIds || [track.rowId]);
@@ -39,7 +56,7 @@ const tracks = {};
 const paths = [...new Set(catalog.tracks.filter(t => t.available).map(t => t.path.toLowerCase()))];
 for (const [index, path] of paths.entries()) {
   const { ogg, hca, reason, ...metadata } = parseScd(await pack.read(path));
-  const contexts = (bgmIdsByPath.get(path) || []).flatMap(id => contextsByBgm.get(id) || []).filter((context, position, all) => all.findIndex(item => item.id === context.id) === position);
+  const contexts = (bgmIdsByPath.get(path) || []).flatMap(id => contextsByBgm.get(id) || []).filter((context, position, all) => all.findIndex(item => item.key === context.key) === position);
   const dungeons = contexts.map(context => context.name).filter(Boolean).filter((name, position, all) => all.indexOf(name) === position);
   const inferredCoverIds = contexts.map(context => context.imageId).filter(Number.isInteger).filter((id, position, all) => all.indexOf(id) === position);
   const old = previous[path] || {};
