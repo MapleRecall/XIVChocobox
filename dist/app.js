@@ -4,7 +4,10 @@ const $ = id => document.getElementById(id);
 const worker = new Worker(new URL('./catalog-worker.js', import.meta.url), { type: 'module' });
 const pending = new Map();
 let requestId = 0, catalog = [], filter = 'orchestrion', selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
+let libraryLabel = '', metadataScanId = 0, trackRows = new Map();
 let opening = false, loading = false, decodeQueue = Promise.resolve();
+const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
+let metadataCache = readMetadataCache(), cacheWriteTimer = null;
 const player = new Player(renderState, message => status('player-status', message, true));
 
 worker.onmessage = ({ data }) => {
@@ -30,10 +33,90 @@ function time(seconds, precise = false) {
   const mins = Math.floor(seconds / 60), secs = Math.floor(seconds % 60);
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}${precise ? '.' + String(Math.floor((seconds % 1) * 100)).padStart(2, '0') : ''}`;
 }
+function readMetadataCache() {
+  try {
+    const value = JSON.parse(localStorage.getItem(METADATA_CACHE_KEY) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch { return {}; }
+}
+function persistMetadataCache() {
+  clearTimeout(cacheWriteTimer);
+  cacheWriteTimer = setTimeout(() => {
+    try { localStorage.setItem(METADATA_CACHE_KEY, JSON.stringify(metadataCache)); } catch { /* Storage can be disabled or full. */ }
+  }, 250);
+}
+function hydrateMetadataCache() {
+  for (const track of catalog) {
+    const cached = metadataCache[track.path.toLowerCase()];
+    if (!cached) continue;
+    track.metadata = { ready: true, ...cached };
+    if (cached.codec) track.codec = cached.codec;
+  }
+}
+function trackMetadataLabel(track) {
+  if (!track.available) return '不可读取';
+  const metadata = track.metadata;
+  if (!metadata?.ready) return '正在读取曲目信息…';
+  if (metadata.error) return '格式暂不支持';
+  const parts = [Number.isFinite(metadata.duration) ? time(metadata.duration) : '时长未知'];
+  parts.push(metadata.hasLoop ? '有循环' : '无循环');
+  parts.push(metadata.hasVariant ? '有变体' : '无变体');
+  return parts.join(' · ');
+}
+function updateTrackRow(track) {
+  const row = trackRows.get(track.id);
+  if (row) row.querySelector('.track-meta').textContent = trackMetadataLabel(track);
+}
+function applyTrackMetadata(path, parsed, error = false) {
+  const key = path.toLowerCase();
+  const metadata = {
+    ready: true,
+    error,
+    duration: Number.isFinite(parsed.duration) ? parsed.duration : null,
+    hasLoop: Boolean(parsed.loop),
+    hasVariant: Boolean(parsed.supported && parsed.channels === 6),
+    codec: parsed.codec || null,
+    channels: parsed.channels || 0,
+  };
+  metadataCache[key] = { error: metadata.error, duration: metadata.duration, hasLoop: metadata.hasLoop, hasVariant: metadata.hasVariant, codec: metadata.codec, channels: metadata.channels };
+  persistMetadataCache();
+  for (const track of catalog) {
+    if (track.path.toLowerCase() !== key) continue;
+    track.metadata = metadata;
+    if (parsed.codec) track.codec = parsed.codec;
+    updateTrackRow(track);
+  }
+}
+function startMetadataScan(kind = filter) {
+  const scan = ++metadataScanId;
+  const pendingPaths = [...new Set(catalog
+    .filter(track => track.kind === kind && track.available && !track.metadata?.ready)
+    .map(track => track.path))];
+  if (!pendingPaths.length) return;
+  (async () => {
+    for (let index = 0; index < pendingPaths.length; index++) {
+      if (scan !== metadataScanId) return;
+      const path = pendingPaths[index];
+      try {
+        const parsed = await request('metadata', { path });
+        if (scan !== metadataScanId) return;
+        applyTrackMetadata(path, parsed);
+      } catch {
+        if (scan !== metadataScanId) return;
+        applyTrackMetadata(path, {}, true);
+      }
+      if (scan === metadataScanId) status('library-status', `${libraryLabel} · 正在读取曲目详情 ${index + 1}/${pendingPaths.length}…`);
+    }
+    if (scan === metadataScanId) status('library-status', `${libraryLabel} · 已读取曲库。`);
+  })().catch(error => {
+    if (scan === metadataScanId) status('library-status', error.message || '曲目详情读取失败。', true);
+  });
+}
 function renderTracks() {
   const query = $('search').value.trim().toLocaleLowerCase();
   const filtered = catalog.filter(t => t.kind === filter && `${t.title} ${t.path} ${t.rowId}`.toLocaleLowerCase().includes(query));
   const fragment = document.createDocumentFragment();
+  trackRows = new Map();
   for (const track of filtered) {
     const button = document.createElement('button');
     button.className = 'track'; button.classList.toggle('selected', selected?.id === track.id);
@@ -42,9 +125,10 @@ function renderTracks() {
     const content = document.createElement('span'); content.className = 'track-content';
     const name = document.createElement('span'); name.className = 'track-name'; name.textContent = track.title;
     const subtitle = document.createElement('span'); subtitle.className = 'track-subtitle'; subtitle.textContent = track.available ? (track.kind === 'orchestrion' ? track.path.split('/').pop().replace('.scd', '') : track.path) : track.unavailableReason;
-    content.append(name, subtitle); button.append(number, content);
+    const metadata = document.createElement('span'); metadata.className = 'track-meta'; metadata.textContent = trackMetadataLabel(track);
+    content.append(name, subtitle, metadata); button.append(number, content);
     if (track.codec || selected?.id === track.id) { const badge = document.createElement('span'); badge.className = 'track-tag'; badge.textContent = track.codec || '已选'; button.append(badge); }
-    button.addEventListener('click', () => selectTrack(track)); fragment.append(button);
+    button.addEventListener('click', () => selectTrack(track)); fragment.append(button); trackRows.set(track.id, button);
   }
   if (!filtered.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = catalog.length ? '没有找到匹配的曲目。' : '曲库将在这里显示。'; fragment.append(p); }
   $('tracks').replaceChildren(fragment);
@@ -55,11 +139,14 @@ async function chooseDirectory() {
   try {
     const directory = await window.showDirectoryPicker({ mode: 'read', id: 'xiv-sqpack' });
     opening = true; $('open-directory').disabled = true;
+    metadataScanId++;
     selection++; player.clear(); selected = null; info = null; duration = 0; loading = false;
     resetTrack(); renderTracks();
     const result = await request('open', { directory }, message => status('library-status', message));
-    catalog = result.tracks; $('search').disabled = false;
-    status('library-status', `${directory.name} · ${result.repositories.join('、')} · 已读取曲库。`);
+    catalog = result.tracks; hydrateMetadataCache(); $('search').disabled = false;
+    libraryLabel = `${directory.name} · ${result.repositories.join('、')}`;
+    status('library-status', `${libraryLabel} · 已读取曲库。`);
+    startMetadataScan(filter);
   } catch (error) {
     if (error.name !== 'AbortError') status('library-status', error.message, true);
   } finally { opening = false; $('open-directory').disabled = !window.showDirectoryPicker; renderTracks(); }
@@ -78,6 +165,7 @@ function resetTrack() {
 async function selectTrack(track) {
   if (opening || !track.available) return;
   const current = ++selection;
+  metadataScanId++;
   player.clear(); selected = track; info = null; duration = 0; loading = true;
   resetTrack(); renderTracks(); status('player-status', '正在读取并解码音乐…');
   // Resume must be requested while the original click has user activation.
@@ -90,11 +178,13 @@ async function selectTrack(track) {
   decodeQueue = task.catch(() => {});
   try { await task; }
   catch (error) { if (current === selection) { loading = false; status('player-status', error.message, true); } }
+  finally { if (current === selection) startMetadataScan(filter); }
 }
 async function loadSelected(track, current) {
   const parsed = await request('track', { path: track.path });
   if (current !== selection) return;
   track.codec = parsed.codec;
+  applyTrackMetadata(track.path, parsed);
   if (!parsed.supported) { loading = false; $('codec').textContent = parsed.codec; $('loop-status').textContent = '此资源暂不能播放'; status('player-status', parsed.reason, true); renderTracks(); return; }
   const loaded = await player.load(parsed, () => current === selection);
   if (!loaded || current !== selection) return;
@@ -195,7 +285,7 @@ $('search').addEventListener('input', renderTracks);
 document.querySelectorAll('[data-kind]').forEach(button => button.addEventListener('click', () => {
   filter = button.dataset.kind;
   document.querySelectorAll('[data-kind]').forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', String(b === button)); });
-  renderTracks(); $('tracks').scrollTop = 0;
+  renderTracks(); $('tracks').scrollTop = 0; startMetadataScan(filter);
 }));
 $('play').addEventListener('click', () => { if (player.state.playing && player.context.state === 'running') player.pause(); else player.play().catch(e => status('player-status', e.message, true)); });
 $('restart').addEventListener('click', () => player.restart().catch(e => status('player-status', e.message, true)));

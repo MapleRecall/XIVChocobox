@@ -20,6 +20,17 @@ const XOR = Uint8Array.from([
   0x83,0x26,0xf9,0x83,0x2e,0xff,0xe3,0x16,0x7d,0xc0,0x1e,0x63,0x21,0x07,0xe3,0x01,
 ]);
 
+// Some assets describe the whole file as a loop (from the first sample to
+// the last one). That is useful to the game engine as a playback hint, but it
+// is not a meaningful loop region for this player: jumping at both boundaries
+// would be inaudible and makes the track look falsely looped in the UI.
+export function normalizeLoop(loop, totalSamples, sampleRate) {
+  if (!loop || !Number.isFinite(totalSamples) || !Number.isFinite(sampleRate) || sampleRate <= 0) return loop;
+  const intro = loop.start / sampleRate;
+  const outro = (totalSamples - loop.end) / sampleRate;
+  return intro <= 0.5 && outro <= 0.5 ? null : loop;
+}
+
 export function parseScd(bytes) {
   requireRange(bytes, 0, 48);
   const d = view(bytes);
@@ -70,6 +81,8 @@ export function parseScd(bytes) {
   // MARK end is inclusive; all player intervals use [start, end).
   if (!loop && markLoop) { loop = markLoop; loopSource = 'MARK'; }
   if (loop && !(loop.start >= 0 && loop.end > loop.start && loop.end <= info.totalSamples)) loop = null;
+  loop = normalizeLoop(loop, info.totalSamples, info.sampleRate);
+  if (!loop) loopSource = null;
   return { ...base, sampleRate: info.sampleRate, channels: info.channels, ogg, totalSamples: info.totalSamples, duration: info.totalSamples / info.sampleRate, loop, loopSource: loop ? loopSource : null, marks: marks.filter(m => m <= info.totalSamples) };
 }
 
