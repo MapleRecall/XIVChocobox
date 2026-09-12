@@ -10,8 +10,6 @@ let libraryLabel = '', metadataScanId = 0, trackRows = new Map(), lastDirectoryH
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
 let metadataCache = readMetadataCache(), cacheWriteTimer = null;
-const POSITION_CACHE_KEY = 'xiv-player-playback-positions-v1';
-let positionCache = readPositionCache(), positionWriteTimer = null;
 let lastVariant = null, filteredRenderTimer = null;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
   .then(response => { if (!response.ok) throw new Error('Metadata unavailable'); return response.json(); })
@@ -58,24 +56,6 @@ function readMetadataCache() {
     const value = JSON.parse(localStorage.getItem(METADATA_CACHE_KEY) || '{}');
     return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   } catch { return {}; }
-}
-function readPositionCache() {
-  try {
-    const value = JSON.parse(localStorage.getItem(POSITION_CACHE_KEY) || '{}');
-    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  } catch { return {}; }
-}
-function persistPositionCache() {
-  if (positionWriteTimer) return;
-  positionWriteTimer = setTimeout(() => {
-    positionWriteTimer = null;
-    try { localStorage.setItem(POSITION_CACHE_KEY, JSON.stringify(positionCache)); } catch { /* Storage can be disabled or full. */ }
-  }, 400);
-}
-function savePlaybackPosition() {
-  if (!selected || !info || loading || !Number.isFinite(player.state.position) || player.state.position <= 0) return;
-  positionCache[selected.path.toLowerCase()] = { position: player.state.position, pass: player.state.pass };
-  persistPositionCache();
 }
 function persistMetadataCache() {
   if (cacheWriteTimer) return;
@@ -275,8 +255,6 @@ async function loadSelected(track, current) {
   $('metadata').replaceChildren(fragment); $('track-details').hidden = false;
   status('player-status', autoVariant ? '默认播放变体 1；点击“切换变体”会在下一个节点切换，并播放过渡音。' : info.loop ? '金色区域为原始循环区间。拖动可跳转；从头播放会重新计数。' : '这首曲目没有有效循环区间，将完整播放一次。');
   status('player-status', ''); applySettings();
-  const saved = positionCache[track.path.toLowerCase()];
-  if (saved && Number.isFinite(saved.position) && saved.position > 0 && saved.position < duration - 0.25) player.seek(saved.position, Number.isInteger(saved.pass) ? saved.pass : 1);
   renderState(player.state); await player.play();
 }
 function channelName(index, count) {
@@ -363,7 +341,6 @@ function renderState(state) {
   if (!info || !info.loop) $('loop-status').textContent = '';
   else if (player.limit === 1) $('loop-status').textContent = '循环关闭';
   updateVariantControls(state);
-  savePlaybackPosition();
 }
 function configureLoop(mode, limit) {
   if (!['off', 'finite', 'infinite'].includes(mode) || !Number.isInteger(limit) || limit < 1 || limit > 999) throw new Error('循环次数必须是 1～999 的整数。');
@@ -409,6 +386,7 @@ try {
     configureLoop(saved.mode, saved.limit);
   }
 } catch { /* Invalid preferences leave defaults intact. */ }
+try { localStorage.removeItem('xiv-player-playback-positions-v1'); } catch {}
 if (!window.showDirectoryPicker || !window.isSecureContext) { $('open-directory').disabled = true; status('library-status', '请在新版 Chrome / Edge 中通过 HTTPS 或 localhost 打开此页面。', true); }
 renderTracks();
 async function restoreDirectory() {

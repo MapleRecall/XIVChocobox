@@ -45,3 +45,14 @@ test('finished Worklet state clears the playback intent for replay', () => {
   player.applyWorkletState({ type: 'state', trackId: 1, position: 10, playing: false, finished: true }, 1);
   assert.equal(player.state.playing, false); assert.equal(player.playbackIntent, false);
 });
+
+test('pause suspends the audio context as a reliable stop fallback', async () => {
+  const player = new Player(() => {}, () => {});
+  let suspended = 0;
+  player.context = { state: 'running', suspend: async () => { suspended++; } };
+  player.node = { port: { postMessage() {} } };
+  player.playbackIntent = true;
+  player.pause();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(suspended, 1); assert.equal(player.state.playing, false);
+});

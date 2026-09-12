@@ -91,6 +91,9 @@ export class Player {
     this.playbackCommand++; this.playbackIntent = false;
     this.node?.port.postMessage({ type: 'pause' });
     this.state = { ...this.state, playing: false }; this.onState(this.state);
+    // Also suspend the destination context. This makes pause deterministic
+    // even if the Worklet is between a variant transition and its next tick.
+    if (this.context?.state === 'running') this.context.suspend().catch(() => {});
   }
   async togglePlayback() {
     // The AudioContext may be suspended independently of the Worklet cursor
