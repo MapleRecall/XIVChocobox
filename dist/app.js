@@ -1,7 +1,7 @@
-import { Player } from './lib/player.js?v=20260913-16';
-import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-16';
-import { iconTexturePaths } from './lib/tex.js?v=20260913-16';
-import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-16';
+import { Player } from './lib/player.js?v=20260913-17';
+import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-17';
+import { iconTexturePaths } from './lib/tex.js?v=20260913-17';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-17';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -90,8 +90,14 @@ function setPlaybackMode(mode, announce = true) {
 function visibleTracks() {
   const query = $('search').value.trim().toLocaleLowerCase();
   return catalog.filter(track => track.kind === filter
+    && ($('show-debug').checked || !isEmptyAudioTrack(track))
     && [...featureFilters].every(feature => track.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`])
     && `${track.title} ${track.path} ${track.rowId}`.toLocaleLowerCase().includes(query));
+}
+function isEmptyAudioTrack(track) {
+  if (!track?.available) return true;
+  if (!track.metadata?.ready) return false;
+  return Boolean(track.metadata.error || track.metadata.codec === '空资源');
 }
 function playlistTracks() { return visibleTracks().filter(track => track.available); }
 function randomTrack(tracks, currentId) {
@@ -232,7 +238,7 @@ function applyTrackMetadata(path, parsed, error = false) {
     if (parsed.codec) track.codec = parsed.codec;
     updateTrackRow(track);
   }
-  if (featureFilters.size && !filteredRenderTimer) filteredRenderTimer = setTimeout(() => { filteredRenderTimer = null; renderTracks(); }, 120);
+  if (!filteredRenderTimer && (featureFilters.size || (!$('show-debug').checked && (metadata.error || metadata.codec === '空资源')))) filteredRenderTimer = setTimeout(() => { filteredRenderTimer = null; renderTracks(); }, 120);
 }
 function startMetadataScan(kind = filter) {
   if (loading) return;
@@ -315,24 +321,21 @@ async function chooseDirectory() {
 function renderTrackInfo() {
   const track = selected;
   const hasInfo = Boolean(track && info);
-  $('info-category').textContent = track ? trackCategory(track) : '';
-  $('info-category').hidden = !track;
+  $('info-category').textContent = track ? trackCategory(track) : 'FINAL FANTASY XIV';
   $('info-title').textContent = track?.title || t('info.title');
-  const description = track?.description || (hasInfo ? '' : t('info.description'));
-  $('info-description').textContent = description;
-  $('info-description').hidden = !description;
-  const rows = [];
-  if (hasInfo && Number.isFinite(duration) && duration > 0) rows.push([t('info.duration'), time(duration)]);
-  const format = info?.codec || track?.codec;
-  if (hasInfo && format) rows.push([t('info.format'), format]);
-  if (hasInfo && Number.isInteger(info.channels) && info.channels > 0) rows.push([t('info.channelLabel'), t('info.channels', { count: info.channels }) + (info.channels === 6 ? t('info.stereoTracks') : '')]);
-  if (hasInfo && info.loop && Number.isFinite(info.loop.start) && Number.isFinite(info.loop.end)) rows.push([t('info.loop'), `${time(info.loop.start / info.sampleRate, true)} — ${time(info.loop.end / info.sampleRate, true)}`]);
-  if (hasInfo && info.channels === 6) rows.push([t('info.variant'), t('info.variantSupported')]);
+  $('info-description').textContent = track?.description || (hasInfo ? t('player.localResource') : t('info.description'));
+  const rows = hasInfo ? [
+    [t('info.duration'), time(duration)],
+    [t('info.format'), info.codec || track.codec || t('track.unknownFormat')],
+    [t('info.channelLabel'), t('info.channels', { count: info.channels }) + (info.channels === 6 ? t('info.stereoTracks') : '')],
+    [t('info.loop'), info.loop ? `${time(info.loop.start / info.sampleRate, true)} — ${time(info.loop.end / info.sampleRate, true)}` : t('info.loopNone')],
+    [t('info.variant'), info.channels === 6 ? t('info.variantSupported') : t('info.loopNone')],
+  ] : [];
   const usage = trackUsage(track, getLanguage());
   if (hasInfo && usage !== '-') rows.push([t('info.usage'), usage]);
   const fragment = document.createDocumentFragment();
   for (const [key, value] of rows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; fragment.append(dt, dd); }
-  $('info-summary').replaceChildren(fragment); $('info-summary').hidden = !rows.length;
+  $('info-summary').replaceChildren(fragment);
 }
 function resetTrack() {
   lastVariant = null;
@@ -345,8 +348,7 @@ function resetTrack() {
   $('cover').setAttribute('aria-label', selected ? t('cover.track', { title: selected.title }) : t('cover.default'));
   syncLoading();
   $('title').textContent = selected?.title || t('player.continue');
-  const description = selected?.description || (selected ? '' : t('player.selectTrack'));
-  $('description').textContent = description; $('description').hidden = !description;
+  $('description').textContent = selected?.description || (selected ? '' : t('player.selectTrack'));
   $('track-category').textContent = selected ? trackCategory(selected) : 'FINAL FANTASY XIV';
   $('codec').textContent = t('info.localPlayback'); $('loop-band').hidden = true; $('marks').replaceChildren();
   $('loop-range').textContent = t('loop.rangeSelect'); $('track-details').hidden = true;
