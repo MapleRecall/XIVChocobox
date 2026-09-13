@@ -51,7 +51,7 @@ function beginTrackTransition() {
   title.classList.remove('is-switching');
   void title.offsetWidth;
   title.classList.add('is-switching');
-  playerTransitionTimer = setTimeout(() => { title.classList.remove('is-switching'); playerTransitionTimer = 0; }, 260);
+  playerTransitionTimer = setTimeout(() => { title.classList.remove('is-switching'); playerTransitionTimer = 0; }, 380);
 }
 function finishCoverTransition() {
   requestAnimationFrame(() => $('cover').classList.remove('is-changing'));
