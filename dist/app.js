@@ -826,7 +826,7 @@ document.querySelectorAll('[data-feature]').forEach(button => button.addEventLis
 function positionFilterMenu() {
   const button = $('filter-toggle'), menu = $('filter-menu');
   const box = button.getBoundingClientRect();
-  const width = Math.min(280, window.innerWidth - 24);
+  const width = Math.min(96, window.innerWidth - 24);
   const left = Math.max(12, Math.min(window.innerWidth - width - 12, box.right - width));
   menu.style.width = `${width}px`;
   menu.style.left = `${left}px`;
