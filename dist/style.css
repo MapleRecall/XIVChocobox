@@ -148,4 +148,5 @@ html.i18n-pending body{visibility:hidden}
 .loop-count-input input:focus{border-color:var(--accent);outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent);outline-offset:1px}
 .loop-count-help{margin:1px 0 0;font-size:11px;line-height:1.5;color:var(--muted)}
 footer{border-top:0}
+.player-content{display:flex;flex-direction:column;justify-content:safe center}
 @media(prefers-reduced-motion:reduce){.loop-menu .loop-switch input,.loop-menu .loop-switch input::after{transition:none}}
