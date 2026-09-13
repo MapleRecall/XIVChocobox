@@ -7,7 +7,7 @@ import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from '.
 const $ = id => document.getElementById(id);
 const worker = new Worker(new URL('./catalog-worker.js?v=20260913-24', import.meta.url), { type: 'module' });
 const pending = new Map();
-let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
+let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false, infoPanelOpen = false;
 let libraryLabel = '', libraryStatusMessage = '', libraryStatusError = false, metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 let coverObjectUrl = null, coverRequestId = 0, playerTransitionToken = 0, lastRenderStateKey = '';
@@ -399,7 +399,7 @@ function renderPlayerDetail() {
 }
 function buildTrackMetadata(track) {
   const metadata = document.createElement('span'); metadata.className = 'track-meta';
-  const format = document.createElement('span'); format.className = 'track-format'; format.textContent = trackFormat(track); metadata.append(format);
+  const format = document.createElement('span'); format.className = 'track-format debug-only'; format.textContent = trackFormat(track); metadata.append(format);
   const ready = Boolean(track.metadata?.ready && !track.metadata.error);
   const loop = document.createElement('span'); loop.className = 'track-icon loop-icon'; loop.textContent = '↻'; loop.title = ready ? (track.metadata.hasLoop ? t('track.hasLoop') : t('track.noLoop')) : t('track.loopLoading'); loop.setAttribute('role', 'img'); loop.setAttribute('aria-label', loop.title); loop.classList.toggle('active', Boolean(ready && track.metadata.hasLoop)); metadata.append(loop);
   const variant = document.createElement('span'); variant.className = 'track-icon variant-icon'; setIcon(variant, 'variant'); variant.title = ready ? (track.metadata.hasVariant ? t('track.hasVariant') : t('track.noVariant')) : t('track.variantLoading'); variant.setAttribute('role', 'img'); variant.setAttribute('aria-label', variant.title); variant.classList.toggle('active', Boolean(ready && track.metadata.hasVariant)); metadata.append(variant);
@@ -565,9 +565,6 @@ async function chooseDirectory() {
 function renderTrackInfo() {
   const track = selected;
   const hasInfo = Boolean(track && info);
-  $('info-category').textContent = track ? trackCategory(track) : 'FINAL FANTASY XIV';
-  $('info-title').textContent = track ? trackTitle(track, getLanguage()) : t('info.title');
-  $('info-description').textContent = track?.description || (hasInfo ? t('player.localResource') : t('info.description'));
   const rows = hasInfo ? [
     [t('info.duration'), time(duration)],
     [t('info.format'), info.codec || track.codec || t('track.unknownFormat')],
@@ -585,10 +582,12 @@ function renderTrackInfo() {
 }
 function updateInfoToggle() {
   const panel = $('track-info-panel');
-  $('info-toggle').setAttribute('aria-expanded', String(!panel.hidden));
+  const visible = infoPanelOpen && Boolean(selected && info && !loading);
+  panel.hidden = !visible;
+  $('info-toggle').setAttribute('aria-expanded', String(visible));
 }
 function setInfoPanelOpen(open) {
-  $('track-info-panel').hidden = !open || !selected;
+  infoPanelOpen = Boolean(open);
   updateInfoToggle();
 }
 function resetTrack() {
@@ -791,7 +790,7 @@ document.querySelectorAll('#language-menu [data-language]').forEach(button => bu
 $('settings-open').addEventListener('click', () => $('settings-menu').showModal());
 $('settings-close').addEventListener('click', () => $('settings-menu').close());
 $('settings-menu').addEventListener('click', event => { if (event.target === $('settings-menu')) { const box = event.target.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) event.target.close(); } });
-$('info-toggle').addEventListener('click', () => { if (!info || loading) return; setInfoPanelOpen($('track-info-panel').hidden); renderTrackInfo(); });
+$('info-toggle').addEventListener('click', () => { if (!info || loading) return; setInfoPanelOpen(!infoPanelOpen); renderTrackInfo(); });
 for (const id of ['show-channels', 'show-debug']) $(id).addEventListener('change', applySettings);
 try { const saved = JSON.parse(localStorage.getItem('xiv-player-display')); $('show-channels').checked = Boolean(saved?.channels); $('show-debug').checked = Boolean(saved?.debug); } catch {}
 document.body.classList.toggle('show-debug', $('show-debug').checked);
