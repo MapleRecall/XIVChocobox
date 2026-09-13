@@ -111,6 +111,4 @@ html.i18n-pending body{visibility:hidden}
 .player-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:46px;margin-top:4px}
 .player-footer .status{flex:1;min-width:0}
 .player-footer #info-toggle{margin-left:auto}
-.track-group-heading{margin:18px 10px 6px;color:var(--accent);font-size:13px;font-weight:600;line-height:22px;letter-spacing:.04em}
-.track-group-heading:first-child{margin-top:4px}
 @media(prefers-reduced-motion:reduce){.timeline.is-loading::after{animation:none;background:var(--loading)}}

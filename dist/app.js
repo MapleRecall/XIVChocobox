@@ -19,8 +19,6 @@ const PLAYBACK_ORDERS = [
   { mode: 'repeat-one', label: 'playback.repeatOne', icon: 'repeatOne' },
   { mode: 'shuffle', label: 'playback.shuffle', icon: 'shuffle' },
 ];
-const BGM_GROUP_ORDER = ['ffxiv', 'ex1', 'ex2', 'ex3', 'ex4', 'ex5'];
-const BGM_GROUP_LABELS = { ffxiv: 'library.versionBase', ex1: 'library.version3', ex2: 'library.version4', ex3: 'library.version5', ex4: 'library.version6', ex5: 'library.version7', other: 'library.versionOther' };
 let lastVariant = null, filteredRenderTimer = null, playbackMode = 'sequential', finishHandledTrackId = null;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
   .then(response => { if (!response.ok) throw new Error('Metadata unavailable'); return response.json(); })
@@ -150,13 +148,8 @@ function visibleTracks() {
     && ($('show-debug').checked || !isEmptyAudioTrack(track))
     && [...featureFilters].every(feature => track.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`])
     && `${track.title} ${Object.values(track.titleByLocale || {}).join(' ')} ${track.path} ${track.rowId}`.toLocaleLowerCase().includes(query));
-  if (filter !== 'bgm') return tracks;
-  return tracks.map((track, index) => ({ track, index }))
-    .sort((a, b) => bgmGroupRank(a.track) - bgmGroupRank(b.track) || a.index - b.index)
-    .map(entry => entry.track);
+  return tracks;
 }
-function bgmGroup(track) { return String(track?.path || '').toLowerCase().match(/^music\/(ffxiv|ex\d+)\//)?.[1] || 'other'; }
-function bgmGroupRank(track) { const group = bgmGroup(track); const rank = BGM_GROUP_ORDER.indexOf(group); return rank < 0 ? BGM_GROUP_ORDER.length : rank; }
 function isEmptyAudioTrack(track) {
   if (!track?.available) return true;
   if (!track.metadata?.ready) return false;
@@ -340,15 +333,7 @@ function renderTracks() {
   const filtered = visibleTracks();
   const fragment = document.createDocumentFragment();
   trackRows = new Map();
-  let previousGroup = null;
   for (const [index, track] of filtered.entries()) {
-    if (filter === 'bgm') {
-      const group = bgmGroup(track);
-      if (group !== previousGroup) {
-        const heading = document.createElement('h2'); heading.className = 'track-group-heading'; heading.textContent = t(BGM_GROUP_LABELS[group] || BGM_GROUP_LABELS.other); fragment.append(heading);
-        previousGroup = group;
-      }
-    }
     const button = document.createElement('button');
     button.className = 'track'; button.classList.toggle('selected', selected?.id === track.id);
     button.setAttribute('aria-pressed', String(selected?.id === track.id)); button.disabled = opening || !track.available;
