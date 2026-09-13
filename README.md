@@ -1,84 +1,67 @@
-# XIV Chocobox · 陆行鸟音乐盒
+# XIV Chocobox
 
-仅使用浏览器读取用户本地 FINAL FANTASY XIV 安装的静态网页。目标为新版桌面 Chrome / Edge。
+XIV Chocobox is a local-first browser music player for **FINAL FANTASY XIV**.
 
-## 使用
+It lets you browse and play game music and Orchestrion rolls directly from a local FFXIV installation. Audio is read and processed in your browser, so your game files stay on your computer.
 
-1. 通过 HTTPS 静态站点或本地 HTTP 服务打开网页。
-2. 首次打开时在“设置”里的“资源目录”点击“重新选择”，选择游戏根目录、`game` 或 `sqpack` 文件夹；程序会自动定位 `game/sqpack`，并读取 `ffxiv` 和 `ex1`～`ex5` 等已存在的资料片目录。也可以直接把文件夹拖进页面。
-3. 按管弦乐谱或游戏配乐名称搜索、选择曲目播放。游戏配乐名称按 BGM ID 对照表显示，找不到对照时回退资源名；列表副标题显示曲目的用途信息，没有匹配时显示 `-`，优先使用 BGM 对照表的 `Locations`，再用本机表扫描结果补充。顶栏可在设置旁切换简体中文、English 和日本語。
-4. 列表会逐步显示格式、时长，并用循环/变体图标标出曲目特征；两个图标按钮可筛选有循环或有变体的曲目。这些摘要在后台读取并缓存在浏览器本地，不保存音频。进度条金色区域是原始循环区间，细线是资源中的 MARK。可拖动进度条跳转。
-5. 设置循环段播放 1～999 遍，或无限循环。次数包含循环段首次播放；有限次数结束后继续尾声，然后按播放顺序决定是否切换下一首。
-6. 选中多声道曲目后，播放器会显示“多声道试听”。“全部声道”保留原始混音；六声道曲目默认播放变体 1（FL+FC），可点击“切换变体”在下一个 MARK 节点切换到变体 2（FR+SL）并叠加过渡强音（LFE+SR）。也可以点击单个 FL/FR/FC/LFE/SL/SR 声道独听。
+## Highlights
 
-暂停/继续及拖动保留已进行的循环次数；播放结束后的“重播”重新计数。拖到尾声会跳过当前循环，播放中减少上限会在当前循环段结束时退出。无循环信息的曲目只播放一次。
+- Browse game music and Orchestrion rolls from a local installation
+- Search by track title, resource name, or usage
+- Loop regions, repeat modes, shuffle, and previous/next track controls
+- Preview multichannel tracks and switch available audio tracks
+- Show track usage and dungeon artwork when available
+- English, Simplified Chinese, and Japanese interfaces
+- Remember local preferences such as volume, language, and playback order
 
-## 本地运行与静态部署
+## Getting started
 
-需要 Node.js 22 或更新版本启动开发服务，不需要安装 npm 依赖：
+### Hosted version
+
+Open the [XIV Chocobox web app](https://xiv-orchestrion-player.maplerecall.chatgpt.site/).
+
+On the first visit, choose one of the following folders:
+
+- Your FFXIV installation directory
+- The `game` directory
+- The `sqpack` directory
+
+The browser will ask for read-only access to the selected folder. After access is granted, the player can load the available music resources. You can also drag a folder into the page when supported by your browser.
+
+### Run locally
+
+The project is a dependency-free static site. To start a local server:
 
 ```sh
+git clone https://github.com/MapleRecall/XIVOrchestrionWeb.git
+cd XIVOrchestrionWeb
 npm run dev
 ```
 
-打开 `http://127.0.0.1:4173/`。将 **dist 文件夹里的所有文件** 放到任意 HTTPS 静态托管即可部署；可以放到子路径。发布内容只有网页代码，无后端、无游戏文件、无构建步骤。服务器应将 `.js` 作为 JavaScript MIME 类型发送。
+Then open <http://127.0.0.1:4173/> in a desktop Chrome or Edge browser.
 
-首次打开时选择目录并申请只读权限；之后会在浏览器本地记住目录句柄，权限仍有效时自动恢复，权限需要重新确认时点击“重新选择”即可。只保存循环、音量和播放顺序偏好，不保存播放位置。曲库、音乐读取、解包和解码均在本地，没有上传接口，不复制整个游戏目录。浏览器可以接收文件夹拖拽；Windows 快捷方式文件本身无法向网页授予目标文件夹权限，请直接拖入目标目录。
+Node.js 22 or newer is recommended for the local server.
 
-## 界面与预置数据
+## Deployment
 
-主播放器提供曲目信息、上一首、播放/暂停、下一首和播放顺序按钮；播放顺序依次可切换为顺序播放、全部循环、单曲循环和随机播放。曲内循环按钮与六声道变体切换按钮位于进度条左下、右下两侧。
-设置菜单中的多声道试听、技术信息默认关闭。载入音乐时进度条显示载入效果；
-实际到达节点并切换变体时，进度条闪光。减少动态效果偏好会关闭动画。
-曲名显示时移除对照表末尾的星号注记。
+The published site is contained in the `dist/` directory and can be served by any static hosting provider. A GitHub Actions workflow for GitHub Pages is included in `.github/workflows/pages.yml`.
 
-`dist/data/track-metadata.json` 包含 2174 条本机已验证资源的摘要，供首次加载曲库与筛选使用；其中 271 条曲目已从本机 `InstanceContent` / `TerritoryType` / `BGMSituation` / `ContentFinderCondition` / `PlaceName` 表匹配到副本名，240 条含副本封面 ID，1005 条含曲目用途信息。导出器同时支持 `InstanceContent.BGM` 的直接关系，以及 `TerritoryType.BGM → BGMSituation → BGM` 的场景关系；副本名称优先使用区域 `PlaceName`，图片 ID 使用对应 `ContentFinderCondition.Image`。用途显示以固化的 BGM `Locations` 快照为主，并生成 `usageByLocale.zh/en/ja` 三语数组；没有对应 `Locations` 时才回退到扫描出的副本名或旧缓存。
-为避免复用曲目被小游戏封面抢占，导出器还读取 `ContentFinderCondition.ContentType`：普通副本、讨伐战、团队副本和绝境战等正常内容优先，金碟游乐场（类型 19）、任务战斗和其他特殊内容降级为补充关联。例如 `BGM_Con_Teikoku_02.scd` 会保留“最终决战天幕魔导城”及图片 ID `112017`，而不会让“第12关：活用竞赛能力”或“萌宠之王：大赛对战（人机对战）”覆盖它。
-未收录曲目仍在后台读取并缓存；实际播放总是重新解析本地音频的循环点。
-每条记录包含 `dungeons`、`uses`、`usageByLocale`、`coverTextureIds` 与 `coverTexturePaths`（并保留单数兼容字段）；曲目选中后会从所选游戏资源读取并解码首个可用 `.tex` 封面。刷新预置数据时会重新生成副本匹配、用途补充，并保留没有自动匹配到的手工封面映射：
+The repository contains no game audio or extracted game files. They are read from the user's local installation at runtime.
 
-```sh
-npm run export:metadata -- "<游戏根目录、game 或 sqpack 文件夹路径>"
-```
+## Privacy
 
-## GitHub Pages
+XIV Chocobox does not upload or copy your game files. Music decoding and playback happen locally in the browser. Small preferences and cached track information may be stored in the browser on your device.
 
-这是普通 Git 仓库和纯静态项目，无需 Sites 服务即可运行。发布目录为 `dist/`；
-所有脚本、Worker 和预置数据均通过相对路径引用，支持 GitHub Pages 项目子路径。
+## Contributing
 
-将仓库推送到 GitHub 后，在 Settings → Pages 中选择 GitHub Actions，
-再手动运行 Actions → Publish GitHub Pages。工作流只上传 `dist/`，不上传游戏文件。
-工作流目前仅手动触发，推送代码不会自动发布。仓库的 Pages 功能需要在账户与仓库设置中可用。
-现有 `.openai/hosting.json` 只用于 Sites 托管，不影响 GitHub Pages。
+Issues and pull requests are welcome. Please keep contributions focused on the player and do not commit FFXIV game assets, extracted resources, or other copyrighted content.
 
-## 格式支持与边界
+## Acknowledgements
 
-- 支持 SqPack `.index2` / `.index` 查找、标准资源分块解压，以及 EXH/EXD 表读取。
-- 中文优先，游戏未提供中文数据时回退英语等可用语言；管弦乐谱曲名来自本机 Orchestrion / OrchestrionPath，BGM 曲名使用按 RowId 固化的 OrchestrionPlugin 对照快照，BGM 表用于补全资源曲库。
-- 支持 SCD v3 中的 OGG 包装版本 2 / 3，以及 FF14 常见的 HCA（ciph 0/1）编码。OGG 由浏览器解码，HCA 在后台 Worker 中解码为 PCM；AudioWorklet 按采样点循环，44.1 kHz 到 48 kHz 的重采样会同步换算循环位置。多声道默认保持原始声道数量；单个声道试听复制到左右两边，变体预设按两个源声道分别送左/右并静音其余输出。
-- 有限循环次数的最后一遍会在循环区间末尾最多 2 秒逐渐减弱，然后继续播放尾声；无限循环不会淡出。无音轨占位条目和需要未提供密钥的 HCA 会说明原因。未选择或缺失的资料片音乐禁用，不会误报为可播放。
-- 当前一次解码一首曲目，不是流式 PCM 解码；估算 PCM 大于 320 MiB 时提示超出内存限制。切歌会释放上一首音频。多声道按浏览器扬声器规则输出；节点变体模式目前按已验证的六声道轨道规律启用，其他布局仍应先用单声道按钮检查。
-- 当前已知的 Crystal Tower 类六声道资源规律：FL+FC 是变体 1 立体声轨，FR+SL 是变体 2 立体声轨，LFE+SR 是切换节点的过渡立体声轨。这里不是按 5.1 的中置/环绕布局下混；播放器预设把每组第一个源声道送左声道、第二个送右声道，保留立体声差异；它们不是原始资源的永久修改。
-- 六声道曲目默认播放变体 1。点击“切换变体”只提交请求，播放器在下一个 MARK 节点切换到另一组立体声，并叠加 LFE+SR 过渡轨；过渡轨只播放到再下一个节点。暂停、拖动或重新开始会清除待切换请求。
-- 循环优先使用 OGG Vorbis 的 LOOPSTART / LOOPEND / LOOPLENGTH；MARK 作为后备。若循环起点距离开头不超过 0.5 秒且终点距离结尾不超过 0.5 秒，则视为整首循环提示并忽略。SCD 外层压缩字节偏移不会误用为采样点。
-- 浏览器后台播放由音频线程保持循环；操作系统休眠或浏览器强制挂起时仍会暂停。浏览器第一次播放需用户交互。
+This project benefits from publicly available FFXIV resource format research and open-source tooling, including:
 
-## 验证
+- [xivres](https://github.com/Soreepeong/xivres)
+- [vgmstream](https://github.com/vgmstream/vgmstream)
+- [FFXIV datamining research](https://github.com/xivapi/ffxiv-datamining/tree/master/research)
 
-```sh
-npm test
-npm run verify:game -- "<游戏根目录、game 或 sqpack 文件夹路径>" --all
-```
-
-`tools/verify-game.mjs` 使用与网页完全相同的解析代码，仅读本地安装。`tools/audio-fixtures.mjs <游戏根目录、game 或 sqpack 文件夹路径>` 是手动验证时才启动的临时回环服务，只提供固定样本，不属于发布目录。`tests/browser-audio.mjs` 和 `tests/browser-variant.mjs` 可在 Chrome 中验证实际 OGG 解码与 AudioWorklet 输出，不会自动播放测试音频。
-
-2026-09-12 本机国服验证：2176 条曲库路径，2174 条可读取（2147 OGG、12 HCA、15 空资源），2 条安装内缺失；OGG 中 1996 条有有效循环信息，35 条有 MARK。Chrome 152 已验证单声道、立体声、六声道和资料片样本的 48 kHz 解码，并通过真实 AudioWorklet 的三遍循环、尾声和停止验证；Node 端已用实际 HCA 曲目完成解码与循环点核查。
-
-## 格式参考
-
-- [xivres](https://github.com/Soreepeong/xivres) 的 SqPack、Excel 和 SCD 结构
-- [vgmstream SCD parser](https://github.com/vgmstream/vgmstream/blob/master/src/meta/sqex_scd.c)
-- [FFXIV SCD 格式研究](https://github.com/xivapi/ffxiv-datamining/blob/master/research/explorer_scd_files)
-- [Web Audio](https://webaudio.github.io/web-audio-api/)
-
-解析器为此项目实现；SCD XOR 表为文件格式常量。仓库不包含游戏音频或游戏数据表。
+XIV Chocobox is an independent fan project and is not affiliated with or endorsed by SQUARE ENIX.
