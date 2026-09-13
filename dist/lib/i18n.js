@@ -530,7 +530,7 @@ function detectBrowserLanguage() {
   }
   return 'zh';
 }
-const presetLanguage = typeof document !== 'undefined' ? document.documentElement.dataset.language : '';
+const presetLanguage = typeof document !== 'undefined' ? document.documentElement.dataset.initialLanguage : '';
 let language = TRANSLATIONS[presetLanguage] ? presetLanguage : detectBrowserLanguage();
 try {
   const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);

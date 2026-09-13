@@ -80,7 +80,7 @@ function cleanTrackTitles(track) {
 }
 function updateLanguageMenu() {
   const language = getLanguage();
-  document.querySelectorAll('[data-language]').forEach(button => {
+  document.querySelectorAll('#language-menu [data-language]').forEach(button => {
     const active = button.dataset.language === language;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
@@ -586,7 +586,7 @@ function configureLoop(mode, limit) {
 }
 document.querySelectorAll('[data-icon]').forEach(element => setIcon(element, element.dataset.icon));
 updatePlaybackOrder();
-document.querySelectorAll('[data-language]').forEach(button => button.addEventListener('click', () => { setLanguage(button.dataset.language); applyLanguage(); $('language-menu').hidePopover?.(); }));
+document.querySelectorAll('#language-menu [data-language]').forEach(button => button.addEventListener('click', () => { setLanguage(button.dataset.language); applyLanguage(); $('language-menu').hidePopover?.(); }));
 $('settings-open').addEventListener('click', () => $('settings-menu').showModal());
 $('settings-close').addEventListener('click', () => $('settings-menu').close());
 $('settings-menu').addEventListener('click', event => { if (event.target === $('settings-menu')) { const box = event.target.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) event.target.close(); } });
