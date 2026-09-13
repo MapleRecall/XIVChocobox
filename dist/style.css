@@ -127,3 +127,16 @@ html.i18n-pending body{visibility:hidden}
 .filter-menu .feature-filter{width:auto;height:34px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:5px 9px;border-radius:6px;font-size:13px;white-space:nowrap}
 .filter-menu .feature-filter:hover:not(:disabled),.filter-menu .feature-filter.active{background:var(--panel-hover);color:var(--text)}
 .filter-menu .feature-filter svg,.track-icon svg{width:18px;height:18px}
+.loop-menu{width:min(300px,calc(100vw - 32px));padding:18px 20px}
+.loop-menu h3{margin-bottom:12px}
+.loop-menu .loop-controls{gap:10px}
+.loop-menu .loop-setting{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:40px;font-size:14px}
+.loop-menu .loop-switch{padding-bottom:10px;border-bottom:1px solid var(--line)}
+.loop-menu .loop-switch input{position:relative;appearance:none;width:38px;height:22px;margin:0;padding:0;border:0;border-radius:999px;background:var(--line-strong);cursor:pointer;transition:background-color .18s ease,box-shadow .18s ease}
+.loop-menu .loop-switch input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:background-color .18s ease,transform .18s ease}
+.loop-menu .loop-switch input:checked{background:var(--accent)}
+.loop-menu .loop-switch input:checked::after{background:#231c12;transform:translateX(16px)}
+.loop-menu .loop-switch input:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.loop-count-input{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.loop-count-input input{width:76px;text-align:center}
+@media(prefers-reduced-motion:reduce){.loop-menu .loop-switch input,.loop-menu .loop-switch input::after{transition:none}}

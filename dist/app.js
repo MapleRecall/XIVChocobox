@@ -1,13 +1,13 @@
 import { Player } from './lib/player.js?v=20260913-23';
 import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-30';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
-import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-34';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-35';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
 const worker = new Worker(new URL('./catalog-worker.js?v=20260913-24', import.meta.url), { type: 'module' });
 const pending = new Map();
-let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false, infoPanelOpen = false;
+let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false, infoPanelOpen = false, loopEnabled = true;
 let libraryLabel = '', libraryStatusMessage = '', libraryStatusError = false, metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 let coverObjectUrl = null, coverRequestId = 0, playerTransitionToken = 0, lastRenderStateKey = '';
@@ -124,9 +124,11 @@ function applyLanguage() {
 }
 function persistPreferences() {
   try {
+    const limit = Number($('loop-limit').value);
     localStorage.setItem('xiv-player-preferences', JSON.stringify({
-      mode: $('loop-mode').value,
-      limit: Number($('loop-limit').value),
+      loopEnabled,
+      mode: loopEnabled ? (limit === 0 ? 'infinite' : 'finite') : 'off',
+      limit,
       volume: player.volume,
       playbackMode,
     }));
@@ -604,7 +606,7 @@ function resetTrack() {
   $('title').textContent = selected ? trackTitle(selected, getLanguage()) : t('player.continue');
   renderPlayerDetail();
   $('codec').textContent = t('info.localPlayback'); $('loop-band').hidden = true; $('marks').replaceChildren();
-  $('loop-range').textContent = t('loop.rangeSelect'); $('track-details').hidden = true;
+  $('track-details').hidden = true;
   $('play').disabled = true; $('info-toggle').disabled = true; $('seek').disabled = true;
   $('channel-panel').hidden = true; $('channel-presets').replaceChildren(); $('channel-buttons').replaceChildren(); channelSelection = null; autoVariant = false;
   $('variant-toggle').hidden = false; $('variant-toggle').disabled = true; $('variant-status').textContent = '';
@@ -655,8 +657,7 @@ async function loadSelected(track, current, autoplay = true) {
   if (info.loop) {
     const start = info.loop.start / info.sampleRate, end = info.loop.end / info.sampleRate;
     $('loop-band').hidden = false; $('loop-band').style.left = `${start / duration * 100}%`; $('loop-band').style.width = `${(end - start) / duration * 100}%`;
-    $('loop-range').textContent = `${time(start, true)} — ${time(end, true)}`;
-  } else $('loop-range').textContent = t('loop.rangeNone');
+  }
   const marks = document.createDocumentFragment();
   for (const sample of info.marks) { const mark = document.createElement('span'); mark.className = 'mark'; mark.style.left = `${Math.min(100, sample / info.sampleRate / duration * 100)}%`; marks.append(mark); }
   $('marks').replaceChildren(marks);
@@ -751,7 +752,7 @@ function setAudioSelection(channels, label = '', mode = 'mono') {
   status('player-status', normalized ? t(mode === 'pair' ? 'status.pairListening' : 'status.soloListening', { label: value }) : t('status.fullMix'));
 }
 function renderState(state) {
-  const stateKey = JSON.stringify([state.position, state.pass, state.playing, state.finished, state.loopExited, state.variant, state.variantPending, state.variantTransition, duration, loading, player.limit, info?.codec, info?.channels, info?.sampleRate, info?.loop?.start, info?.loop?.end, autoVariant, player.variantMode, selected?.id, playbackMode, opening, getLanguage()]);
+  const stateKey = JSON.stringify([state.position, state.pass, state.playing, state.finished, state.loopExited, state.variant, state.variantPending, state.variantTransition, duration, loading, loopEnabled, player.limit, info?.codec, info?.channels, info?.sampleRate, info?.loop?.start, info?.loop?.end, autoVariant, player.variantMode, selected?.id, playbackMode, opening, getLanguage()]);
   if (stateKey === lastRenderStateKey) return;
   lastRenderStateKey = stateKey;
   if (!dragging) { $('seek').value = String(state.position); $('played').style.width = `${duration ? Math.min(100, state.position / duration * 100) : 0}%`; }
@@ -763,26 +764,32 @@ function renderState(state) {
   $('play').title = playLabel; $('play').setAttribute('aria-label', playLabel);
   setIcon($('play'), state.playing ? 'pause' : 'play');
   $('loop-toggle').disabled = !info?.loop || loading;
-  const looping = Boolean(info?.loop && player.limit !== 1);
+  const looping = Boolean(info?.loop && loopEnabled);
   $('loop-toggle').classList.toggle('active', looping);
-  const loopValue = player.limit === Infinity ? t('loop.infinite') : player.limit === 1 ? t('loop.off') : `${player.limit} ${t('loop.limitSuffix')}`;
+  const loopValue = !loopEnabled ? t('loop.off') : player.limit === Infinity ? t('loop.infinite') : `${player.limit} ${t('loop.limitSuffix')}`;
   $('loop-toggle').title = info?.loop ? t('loop.toggle', { value: loopValue }) : t('loop.unavailable');
   syncLoading();
   if (!info) $('loop-status').textContent = loading ? t('loop.loading') : t('loop.waiting');
   else if (!info.loop) $('loop-status').textContent = t('loop.none');
+  else if (!loopEnabled) $('loop-status').textContent = t('loop.closed');
   else if (state.finished) $('loop-status').textContent = t('loop.finished');
   else if (state.loopExited) $('loop-status').textContent = t('loop.exited');
   else if (state.position < info.loop.start / info.sampleRate) $('loop-status').textContent = t('loop.before');
   else $('loop-status').textContent = t('loop.pass', { pass: state.pass, limit: player.limit === Infinity ? '∞' : player.limit });
   if (!info || !info.loop) $('loop-status').textContent = '';
-  else if (player.limit === 1) $('loop-status').textContent = t('loop.closed');
   updateVariantControls(state);
   updateNavigationControls();
 }
-function configureLoop(mode, limit) {
-  if (!['off', 'finite', 'infinite'].includes(mode) || !Number.isInteger(limit) || limit < 1 || limit > 999) throw new Error(t('loop.limitError'));
-  $('loop-mode').value = mode; $('loop-limit').value = String(limit); $('limit-label').hidden = mode !== 'finite';
-  player.setLimit(mode === 'off' ? 1 : mode === 'infinite' ? Infinity : limit); renderState(player.state); persistPreferences();
+function configureLoop(enabledOrMode, limit) {
+  const legacyMode = typeof enabledOrMode === 'string' ? enabledOrMode : null;
+  if (legacyMode && !['off', 'finite', 'infinite'].includes(legacyMode)) throw new Error(t('loop.limitError'));
+  const enabled = legacyMode ? legacyMode !== 'off' : Boolean(enabledOrMode);
+  const count = legacyMode === 'infinite' ? 0 : limit;
+  if (!Number.isInteger(count) || count < 0 || count > 999) throw new Error(t('loop.limitError'));
+  loopEnabled = enabled;
+  $('loop-enabled').checked = enabled;
+  $('loop-limit').value = String(count);
+  player.setLimit(enabled ? (count === 0 ? Infinity : count) : 1); renderState(player.state); persistPreferences();
 }
 document.querySelectorAll('[data-icon]').forEach(element => setIcon(element, element.dataset.icon));
 updatePlaybackOrder();
@@ -863,15 +870,16 @@ $('variant-toggle').addEventListener('click', () => {
   const currentVariant = Number.isInteger(player.state.variant) ? player.state.variant + 1 : 1;
   $('variant-status').textContent = t('variant.waiting', { variant: currentVariant });
 });
-for (const id of ['loop-mode', 'loop-limit']) $(id).addEventListener('change', () => {
-  if (!$('loop-limit').checkValidity()) { $('loop-limit').reportValidity(); return; }
-  configureLoop($('loop-mode').value, Number($('loop-limit').value));
+for (const id of ['loop-enabled', 'loop-limit']) $(id).addEventListener('change', () => {
+  if (!$('loop-limit').checkValidity()) { $('loop-limit').reportValidity(); $('loop-enabled').checked = loopEnabled; return; }
+  configureLoop($('loop-enabled').checked, Number($('loop-limit').value));
 });
 try {
   const saved = JSON.parse(localStorage.getItem('xiv-player-preferences'));
   if (saved) {
     if (Number.isFinite(saved.volume) && saved.volume >= 0 && saved.volume <= 1) { player.setVolume(saved.volume); $('volume').value = String(saved.volume); }
-    if (['off', 'finite', 'infinite'].includes(saved.mode) && Number.isInteger(saved.limit) && saved.limit >= 1 && saved.limit <= 999) configureLoop(saved.mode, saved.limit);
+    if (typeof saved.loopEnabled === 'boolean' && Number.isInteger(saved.limit) && saved.limit >= 0 && saved.limit <= 999) configureLoop(saved.loopEnabled, saved.limit);
+    else if (['off', 'finite', 'infinite'].includes(saved.mode) && Number.isInteger(saved.limit) && saved.limit >= 1 && saved.limit <= 999) configureLoop(saved.mode, saved.limit);
     if (PLAYBACK_ORDERS.some(order => order.mode === saved.playbackMode)) { playbackMode = saved.playbackMode; updatePlaybackOrder(); }
   }
 } catch { /* Invalid preferences leave defaults intact. */ }
@@ -900,8 +908,8 @@ void restoreDirectory();
 if (document.modelContext?.registerTool) {
   const lifecycle = new AbortController();
   const tools = [
-    { name: 'get_player_state', title: t('mcp.readState'), description: t('mcp.readStateDescription'), inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: () => ({ track: selected?.title || null, ...player.state, loopMode: player.limit === Infinity ? 'infinite' : 'finite', limit: Number.isFinite(player.limit) ? player.limit : null }) },
-    { name: 'set_loop_playback', title: t('mcp.setLoop'), description: t('mcp.setLoopDescription'), inputSchema: { type: 'object', properties: { mode: { enum: ['off', 'finite', 'infinite'] }, limit: { type: 'integer', minimum: 1, maximum: 999 } }, required: ['mode', 'limit'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { configureLoop(input.mode, input.limit); return { mode: input.mode, limit: input.limit }; } },
+    { name: 'get_player_state', title: t('mcp.readState'), description: t('mcp.readStateDescription'), inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: () => ({ track: selected?.title || null, ...player.state, loopMode: loopEnabled ? (player.limit === Infinity ? 'infinite' : 'finite') : 'off', limit: Number($('loop-limit').value) }) },
+    { name: 'set_loop_playback', title: t('mcp.setLoop'), description: t('mcp.setLoopDescription'), inputSchema: { type: 'object', properties: { mode: { enum: ['off', 'finite', 'infinite'] }, limit: { type: 'integer', minimum: 0, maximum: 999 } }, required: ['mode', 'limit'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { configureLoop(input.mode, input.mode === 'infinite' ? 0 : input.limit); return { mode: input.mode, limit: Number($('loop-limit').value) }; } },
     { name: 'set_audio_channel', title: t('mcp.setChannel'), description: t('mcp.setChannelDescription'), inputSchema: { type: 'object', properties: { channel: { type: 'integer', minimum: -1, maximum: 7 } }, required: ['channel'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { setAudioSelection(input.channel < 0 ? null : [input.channel]); return { channel: input.channel, mode: input.channel < 0 ? 'all' : 'solo' }; } },
     { name: 'set_audio_variant', title: t('mcp.setVariant'), description: t('mcp.setVariantDescription'), inputSchema: { type: 'object', properties: { variant: { enum: ['all', 'one', 'two', 'transition'] } }, required: ['variant'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { const groups = { all: null, one: [0, 2], two: [1, 4], transition: [3, 5] }; if (groups[input.variant] && (!info || info.channels !== 6)) throw new Error(t('status.variantSixOnly')); setAudioSelection(groups[input.variant], input.variant, 'pair'); return { variant: input.variant, channels: groups[input.variant] }; } },
   ];
