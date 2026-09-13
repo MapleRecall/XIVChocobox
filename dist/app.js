@@ -10,7 +10,7 @@ const pending = new Map();
 let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
 let libraryLabel = '', metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
-let coverObjectUrl = null, coverRequestId = 0, playerTransitionTimer = 0;
+let coverObjectUrl = null, coverRequestId = 0, playerTransitionToken = 0;
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
 let metadataCache = readMetadataCache(), cacheWriteTimer = null;
 const PLAYBACK_ORDERS = [
@@ -46,12 +46,17 @@ function request(type, payload = {}, progress) {
 function status(id, message, error = false) { $(id).textContent = message; $(id).classList.toggle('error', error); }
 function beginTrackTransition() {
   const title = document.querySelector('.track-title');
-  if (!title) return;
-  clearTimeout(playerTransitionTimer);
+  if (!title) return Promise.resolve(0);
+  const token = ++playerTransitionToken;
   title.classList.remove('is-switching');
   void title.offsetWidth;
   title.classList.add('is-switching');
-  playerTransitionTimer = setTimeout(() => { title.classList.remove('is-switching'); playerTransitionTimer = 0; }, 380);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve(token);
+  return new Promise(resolve => setTimeout(() => resolve(token), 380));
+}
+function finishTrackTransition(token) {
+  if (token !== playerTransitionToken) return;
+  requestAnimationFrame(() => document.querySelector('.track-title')?.classList.remove('is-switching'));
 }
 function finishCoverTransition() {
   requestAnimationFrame(() => $('cover').classList.remove('is-changing'));
@@ -389,12 +394,16 @@ async function selectTrack(track) {
   metadataScanId++;
   finishHandledTrackId = null;
   if ($('track-info-menu').open) $('track-info-menu').close();
-  beginTrackTransition();
+  const titleTransition = beginTrackTransition();
+  $('cover').classList.add('is-changing');
   player.clear(); selected = track; info = null; duration = 0; loading = true;
-  resetTrack(); renderTracks(); scrollSelectedTrackIntoView(); status('player-status', t('status.decode'));
+  renderTracks(); scrollSelectedTrackIntoView(); status('player-status', t('status.decode'));
   // Resume must be requested while the original click has user activation.
   const activated = player.activate();
   activated.catch(() => {});
+  const transitionToken = await titleTransition;
+  if (current !== selection) return;
+  resetTrack(); finishTrackTransition(transitionToken);
   const task = decodeQueue.then(async () => {
     await activated;
     if (current === selection) await loadSelected(track, current);
