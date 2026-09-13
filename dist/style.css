@@ -57,8 +57,13 @@ svg{pointer-events:none}
   --track-border:#36271f;
   --mark:#f5e5c980;
   --loading:#eac07999;
+  --workspace-radius:18px;
+  --workspace-border:var(--line);
+  --workspace-shadow:0 24px 60px #0009;
 }
 body{background:var(--bg)}
+.topbar{border-bottom:0}
+.workspace{width:min(calc(100% - 48px),1450px);height:calc(100% - 32px);margin:16px auto;border:1px solid var(--workspace-border);border-radius:var(--workspace-radius);box-shadow:var(--workspace-shadow);background:var(--panel)}
 .player{background:linear-gradient(140deg,var(--player-glow),transparent 70%)}
 .button{background:var(--panel-raised)}
 .button:hover:not(:disabled){background:var(--panel-hover)}
@@ -142,4 +147,5 @@ html.i18n-pending body{visibility:hidden}
 .loop-count-input input{width:52px;height:28px;padding:4px 3px;text-align:center;background:var(--bg);color:var(--text);border:1px solid var(--line-strong);border-radius:6px;font-size:13px;font-variant-numeric:tabular-nums}
 .loop-count-input input:focus{border-color:var(--accent);outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent);outline-offset:1px}
 .loop-count-help{margin:1px 0 0;font-size:11px;line-height:1.5;color:var(--muted)}
+footer{border-top:0}
 @media(prefers-reduced-motion:reduce){.loop-menu .loop-switch input,.loop-menu .loop-switch input::after{transition:none}}
