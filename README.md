@@ -18,7 +18,7 @@ It lets you browse and play game music and Orchestrion rolls directly from a loc
 
 ### Hosted version
 
-Open the [XIVChocobox web app](https://xiv-orchestrion-player.maplerecall.chatgpt.site/).
+Open the [XIVChocobox web app](https://maplerecall.github.io/XIVChocobox/).
 
 On the first visit, choose one of the following folders:
 
