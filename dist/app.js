@@ -29,6 +29,7 @@ const BGM_GROUPS = [
 ];
 const collapsedBgmGroups = new Set();
 let lastVariant = null, filteredRenderTimer = null, playbackMode = 'sequential', finishHandledTrackId = null;
+let shuffleHistory = [], shuffleHistoryIndex = -1;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
   .then(response => { if (!response.ok) throw new Error('Metadata unavailable'); return response.json(); })
   .then(data => data.schemaVersion === 1 ? data.tracks : {}).catch(() => ({}));
@@ -140,9 +141,27 @@ function updateVolumeControl() {
   $('volume-toggle').title = label;
   $('volume-toggle').setAttribute('aria-label', label);
 }
+function resetShuffleHistory(track = null) {
+  shuffleHistory = track ? [track.id] : [];
+  shuffleHistoryIndex = track ? 0 : -1;
+}
+function syncShuffleHistory() {
+  if (playbackMode !== 'shuffle' || !selected) return;
+  if (shuffleHistory[shuffleHistoryIndex] === selected.id) return;
+  const existing = shuffleHistory.lastIndexOf(selected.id);
+  if (existing >= 0) { shuffleHistoryIndex = existing; return; }
+  resetShuffleHistory(selected);
+}
+function recordShuffleSelection(track) {
+  if (playbackMode !== 'shuffle' || !track || shuffleHistory[shuffleHistoryIndex] === track.id) return;
+  shuffleHistory = shuffleHistory.slice(0, shuffleHistoryIndex + 1);
+  shuffleHistory.push(track.id); shuffleHistoryIndex = shuffleHistory.length - 1;
+}
 function setPlaybackMode(mode, announce = true) {
   if (!PLAYBACK_ORDERS.some(order => order.mode === mode)) return;
+  const changed = playbackMode !== mode;
   playbackMode = mode;
+  if (changed) resetShuffleHistory(mode === 'shuffle' ? selected : null);
   updatePlaybackOrder();
   persistPreferences();
   if (announce) status('player-status', t('status.orderChanged', { mode: orderLabel() }));
@@ -186,17 +205,31 @@ function randomTrack(tracks, currentId) {
   const choices = tracks.filter(track => track.id !== currentId);
   return choices[Math.floor(Math.random() * choices.length)] || tracks.find(track => track.id === currentId) || null;
 }
+function shuffleHistoryTrack(playlist, direction) {
+  const step = direction < 0 ? -1 : 1;
+  let index = shuffleHistoryIndex + step;
+  while (index >= 0 && index < shuffleHistory.length) {
+    const track = playlist.find(candidate => candidate.id === shuffleHistory[index]);
+    if (track) { shuffleHistoryIndex = index; return track; }
+    index += step;
+  }
+  return null;
+}
 function adjacentTrack(direction = 1, automatic = false) {
   const playlist = playlistTracks();
   const index = playlist.findIndex(track => track.id === selected?.id);
   if (index < 0 || !playlist.length) return null;
   if (automatic) {
     if (playbackMode === 'repeat-one') return selected;
-    if (playbackMode === 'shuffle') return randomTrack(playlist, selected.id);
+    if (playbackMode === 'shuffle') { const next = randomTrack(playlist, selected.id); recordShuffleSelection(next); return next; }
     if (index + 1 < playlist.length) return playlist[index + 1];
     return playbackMode === 'repeat-all' ? playlist[0] : null;
   }
-  if (playbackMode === 'shuffle') return randomTrack(playlist, selected.id);
+  if (playbackMode === 'shuffle') {
+    syncShuffleHistory();
+    if (direction < 0) return shuffleHistoryTrack(playlist, -1);
+    return shuffleHistoryTrack(playlist, 1) || (() => { const next = randomTrack(playlist, selected.id); recordShuffleSelection(next); return next; })();
+  }
   const target = index + direction;
   if (target >= 0 && target < playlist.length) return playlist[target];
   return playbackMode === 'repeat-all' ? playlist[(target + playlist.length) % playlist.length] : null;
@@ -206,7 +239,7 @@ function updateNavigationControls() {
   const index = playlist.findIndex(track => track.id === selected?.id);
   const usable = !opening && !loading && index >= 0 && playlist.length > 1;
   const wraps = playbackMode === 'repeat-all' || playbackMode === 'shuffle';
-  $('previous').disabled = !usable || (!wraps && index === 0);
+  $('previous').disabled = !usable || (playbackMode === 'shuffle' ? shuffleHistoryIndex <= 0 : (!wraps && index === 0));
   $('next').disabled = !usable || (!wraps && index === playlist.length - 1);
 }
 function handlePlayerState(state) {
@@ -417,7 +450,7 @@ function renderTracks() {
 async function openDirectory(directory) {
   opening = true; $('directory-select').disabled = true;
   metadataScanId++;
-  selection++; player.clear(); selected = null; info = null; duration = 0; loading = false;
+  selection++; player.clear(); selected = null; info = null; duration = 0; loading = false; resetShuffleHistory();
   resetTrack(); renderTracks();
   const result = await request('open', { directory }, message => status('library-status', message));
   presetMetadata = await presetReady;
@@ -481,6 +514,7 @@ function resetTrack() {
 }
 async function selectTrack(track) {
   if (opening || !track.available) return;
+  recordShuffleSelection(track);
   const current = ++selection;
   metadataScanId++;
   finishHandledTrackId = null;
