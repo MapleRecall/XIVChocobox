@@ -22,16 +22,18 @@ svg{pointer-events:none}
 .cover.has-image>[data-icon="music"],.cover.has-image .cover-caption{display:none}
 .transport{gap:16px;margin:18px 0 16px}
 .transport>.icon-button:not(.play){width:46px;height:46px}
-.track-info-menu{width:min(520px,90vw)}
-.track-info-menu h3{font-family:"Noto Serif SC","Songti SC",SimSun,serif;font-size:25px;font-weight:500;line-height:1.4;margin:8px 0}
+.track-info-panel{margin-top:18px;padding:20px 22px;background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 14px 36px #0005}
+.panel-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.panel-heading h2{font-size:20px}
+.track-info-panel h3{font-family:"Noto Serif SC","Songti SC",SimSun,serif;font-size:25px;font-weight:500;line-height:1.4;margin:8px 0}
 .info-description{color:var(--muted);font-size:14px;line-height:1.7;max-height:5.1em;overflow-y:auto}
 #info-summary{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);grid-template-columns:100px minmax(0,1fr);font-size:14px}
 #info-summary dt{color:var(--muted)}
 #info-summary dd{color:var(--text)}
-.track-info-menu details{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.track-info-panel details{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
 .directory-setting>span{min-width:0;flex:1}
 .directory-setting small{overflow-wrap:anywhere;line-height:1.5}
-.show-debug .track-info-menu .debug-only:not([hidden]){display:block!important}
+.show-debug .track-info-panel .debug-only:not([hidden]){display:block!important}
 .drag-active .workspace{outline:1px dashed var(--cyan);outline-offset:-8px}
 .cover{width:100%;max-width:none;aspect-ratio:47 / 15}
 .cover{background-color:transparent;border:0;box-shadow:none}
@@ -121,12 +123,11 @@ html.i18n-pending body{visibility:hidden}
 .search{display:block;width:100%}
 .search input{padding-right:54px}
 .filter-toggle{position:absolute;right:4px;top:4px;width:38px;height:38px}
-.filter-menu{position:fixed;inset:auto;margin:0;width:max-content;max-width:calc(100vw - 24px);padding:8px;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 16px 40px #0008;color:var(--text)}
+.filter-menu{position:fixed;inset:auto;margin:0;width:max-content;max-width:calc(100vw - 24px);padding:6px;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 16px 40px #0008;color:var(--text)}
 .filter-menu-section+.filter-menu-section{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
-.filter-menu-heading{padding:0 10px 6px;color:var(--muted);font-size:12px}
 .filter-menu .filters,.filter-menu .feature-filters{display:flex;flex-direction:row;gap:4px}
 .filter-menu .filter{width:100%;padding:9px 10px;border:0;border-radius:6px;text-align:left}
 .filter-menu .filter:hover:not(:disabled),.filter-menu .filter.active{background:var(--panel-hover);color:var(--text)}
-.filter-menu .feature-filter{width:36px;height:36px;display:flex;align-items:center;justify-content:center;gap:0;padding:6px;border-radius:6px}
+.filter-menu .feature-filter{width:auto;height:34px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:5px 9px;border-radius:6px;font-size:13px;white-space:nowrap}
 .filter-menu .feature-filter:hover:not(:disabled),.filter-menu .feature-filter.active{background:var(--panel-hover);color:var(--text)}
 .filter-menu .feature-filter svg,.track-icon svg{width:18px;height:18px}

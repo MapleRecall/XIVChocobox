@@ -1,7 +1,7 @@
 import { Player } from './lib/player.js?v=20260913-23';
 import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-30';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
-import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-32';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-33';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -390,6 +390,10 @@ function trackDisplayDetail(track) {
   if (track?.kind === 'orchestrion') return String(track.description || '').trim() || '-';
   return trackUsage(track, getLanguage());
 }
+function trackDungeons(track) {
+  return [...new Set((Array.isArray(track?.dungeons) ? track.dungeons : [])
+    .map(value => String(value).trim()).filter(Boolean))];
+}
 function renderPlayerDetail() {
   $('description').textContent = selected ? trackDisplayDetail(selected) : t('player.selectTrack');
 }
@@ -572,10 +576,20 @@ function renderTrackInfo() {
     [t('info.variant'), info.channels === 6 ? t('info.variantSupported') : t('info.loopNone')],
   ] : [];
   const usage = trackUsage(track, getLanguage());
+  const dungeons = trackDungeons(track);
   if (hasInfo && usage !== '-') rows.push([t('info.usage'), usage]);
+  if (hasInfo && dungeons.length) rows.push([t('info.dungeons'), dungeons.join(languageSeparator())]);
   const fragment = document.createDocumentFragment();
   for (const [key, value] of rows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; fragment.append(dt, dd); }
   $('info-summary').replaceChildren(fragment);
+}
+function updateInfoToggle() {
+  const panel = $('track-info-panel');
+  $('info-toggle').setAttribute('aria-expanded', String(!panel.hidden));
+}
+function setInfoPanelOpen(open) {
+  $('track-info-panel').hidden = !open || !selected;
+  updateInfoToggle();
 }
 function resetTrack() {
   lastVariant = null;
@@ -583,7 +597,7 @@ function resetTrack() {
   $('cover').classList.toggle('is-changing', Boolean(selected));
   if (coverObjectUrl?.startsWith('blob:')) URL.revokeObjectURL(coverObjectUrl);
   coverObjectUrl = null; $('cover').style.removeProperty('background-image'); $('cover').classList.remove('has-image');
-  if ($('track-info-menu').open) $('track-info-menu').close();
+  if (!selected) setInfoPanelOpen(false);
   $('cover').dataset.textureId = String(selected?.coverTextureId ?? '');
   $('cover').dataset.texturePath = selected?.coverTexturePath ?? '';
   $('cover').setAttribute('aria-label', selected ? t('cover.track', { title: trackTitle(selected, getLanguage()) }) : t('cover.default'));
@@ -605,7 +619,6 @@ async function selectTrack(track, allowWhileOpening = false, autoplay = true) {
   const current = ++selection;
   metadataScanId++;
   finishHandledTrackId = null;
-  if ($('track-info-menu').open) $('track-info-menu').close();
   const titleTransition = beginTrackTransition();
   $('cover').classList.add('is-changing');
   player.clear(); selected = track; info = null; duration = 0; loading = true;
@@ -746,7 +759,7 @@ function renderState(state) {
   $('position-current').textContent = time(dragging ? Number($('seek').value) : state.position);
   $('position-total').textContent = time(duration);
   const playable = Boolean(info && !loading);
-  $('play').disabled = !playable; $('info-toggle').disabled = !playable;
+  $('play').disabled = !playable; $('info-toggle').disabled = !playable; updateInfoToggle();
   const playLabel = state.playing ? t('player.pause') : state.finished ? t('player.replay') : t('player.play');
   $('play').title = playLabel; $('play').setAttribute('aria-label', playLabel);
   setIcon($('play'), state.playing ? 'pause' : 'play');
@@ -778,9 +791,7 @@ document.querySelectorAll('#language-menu [data-language]').forEach(button => bu
 $('settings-open').addEventListener('click', () => $('settings-menu').showModal());
 $('settings-close').addEventListener('click', () => $('settings-menu').close());
 $('settings-menu').addEventListener('click', event => { if (event.target === $('settings-menu')) { const box = event.target.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) event.target.close(); } });
-$('info-toggle').addEventListener('click', () => { if (!info || loading) return; renderTrackInfo(); $('track-info-menu').showModal(); });
-$('track-info-close').addEventListener('click', () => $('track-info-menu').close());
-$('track-info-menu').addEventListener('click', event => { if (event.target === $('track-info-menu')) { const box = event.target.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) event.target.close(); } });
+$('info-toggle').addEventListener('click', () => { if (!info || loading) return; setInfoPanelOpen($('track-info-panel').hidden); renderTrackInfo(); });
 for (const id of ['show-channels', 'show-debug']) $(id).addEventListener('change', applySettings);
 try { const saved = JSON.parse(localStorage.getItem('xiv-player-display')); $('show-channels').checked = Boolean(saved?.channels); $('show-debug').checked = Boolean(saved?.debug); } catch {}
 document.body.classList.toggle('show-debug', $('show-debug').checked);
@@ -826,14 +837,16 @@ document.querySelectorAll('[data-feature]').forEach(button => button.addEventLis
 function positionFilterMenu() {
   const button = $('filter-toggle'), menu = $('filter-menu');
   const box = button.getBoundingClientRect();
-  const width = Math.min(96, window.innerWidth - 24);
+  const width = Math.min(menu.getBoundingClientRect().width || 150, window.innerWidth - 24);
   const left = Math.max(12, Math.min(window.innerWidth - width - 12, box.right - width));
-  menu.style.width = `${width}px`;
   menu.style.left = `${left}px`;
   menu.style.top = `${box.bottom + 8}px`;
 }
-$('filter-toggle').addEventListener('click', positionFilterMenu);
-$('filter-menu').addEventListener('toggle', event => $('filter-toggle').setAttribute('aria-expanded', String(event.newState === 'open')));
+$('filter-toggle').addEventListener('click', () => requestAnimationFrame(positionFilterMenu));
+$('filter-menu').addEventListener('toggle', event => {
+  $('filter-toggle').setAttribute('aria-expanded', String(event.newState === 'open'));
+  if (event.newState === 'open') requestAnimationFrame(positionFilterMenu);
+});
 window.addEventListener('resize', () => { if ($('filter-menu').matches(':popover-open')) positionFilterMenu(); });
 $('play').addEventListener('click', () => { player.togglePlayback().catch(e => status('player-status', e.message, true)); });
 $('previous').addEventListener('click', () => { const track = adjacentTrack(-1); if (track) void selectTrack(track); });
