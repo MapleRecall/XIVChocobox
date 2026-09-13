@@ -338,7 +338,15 @@ function renderTracks() {
     summary.append(badge, metadata); button.append(number, content, summary);
     button.addEventListener('click', () => selectTrack(track)); fragment.append(button); trackRows.set(track.id, button);
   }
-  if (!filtered.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = catalog.length ? t('library.noMatch') : t('library.empty'); fragment.append(p); }
+  if (!filtered.length) {
+    const empty = document.createElement('div'); empty.className = 'empty library-empty';
+    const message = document.createElement('p'); message.textContent = catalog.length ? t('library.noMatch') : t('library.empty'); empty.append(message);
+    if (!catalog.length) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'button library-empty-action'; button.textContent = t('library.chooseDirectory'); button.title = t('library.chooseDirectory'); button.disabled = opening || !window.showDirectoryPicker || !window.isSecureContext;
+      button.addEventListener('click', chooseDirectory); empty.append(button);
+    }
+    fragment.append(empty);
+  }
   $('tracks').replaceChildren(fragment);
   $('track-count').textContent = catalog.length ? t('library.trackCount', { count: filtered.length }) : t('library.notLoaded');
   updateNavigationControls();

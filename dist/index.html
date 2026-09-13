@@ -62,7 +62,7 @@
 <p id="player-status" class="status" role="status"></p>
 </div></section>
 </main>
-<footer><span data-i18n="footer.source">音乐来自你的本地游戏</span><span>v40</span></footer>
+<footer><span data-i18n="footer.source">音乐来自你的本地游戏</span><span>v41</span></footer>
 <div id="loop-menu" class="popover" popover><h3 data-i18n="loop.title">曲内循环</h3><div class="loop-controls"><label><span data-i18n="loop.mode">播放方式</span><select id="loop-mode"><option value="off" data-i18n="loop.off">关闭</option><option value="finite" selected data-i18n="loop.finite">有限次数</option><option value="infinite" data-i18n="loop.infinite">无限循环</option></select></label><label id="limit-label" class="limit"><span data-i18n="loop.limitPrefix">播放</span><input id="loop-limit" type="number" min="1" max="999" step="1" value="3" data-i18n-aria-label="loop.limitAria" aria-label="循环区间播放次数"><span data-i18n="loop.limitSuffix">遍</span></label></div><p class="muted" data-i18n="loop.help">次数包含循环段首次播放，结束后继续尾声。</p><p id="loop-range" class="muted"></p></div>
 <dialog id="track-info-menu" aria-labelledby="track-info-heading"><div class="dialog-heading"><h2 id="track-info-heading" data-i18n="player.info">曲目信息</h2><button id="track-info-close" class="icon-button" data-i18n-aria-label="dialog.close" data-i18n-title="dialog.close" aria-label="关闭" title="关闭" data-icon="close"></button></div><p id="info-category" class="muted"></p><h3 id="info-title" data-i18n="info.title">让旋律继续</h3><p id="info-description" class="info-description" data-i18n="info.description">选择一首曲目后，这里会显示曲目信息。</p><dl id="info-summary"></dl><details id="track-details" class="debug-only" hidden><summary data-i18n="info.technical">技术信息</summary><span id="codec" class="badge"></span><dl id="metadata"></dl></details></dialog>
 <dialog id="settings-menu"><div class="dialog-heading"><h2 data-i18n="settings">设置</h2><button id="settings-close" class="icon-button" data-i18n-aria-label="dialog.close" data-i18n-title="dialog.close" aria-label="关闭" title="关闭" data-icon="close"></button></div>
@@ -73,5 +73,5 @@
 <p class="muted settings-footnote" data-i18n="settings.directoryFootnote">选择游戏根目录或 game 文件夹，程序会自动寻找其中的 game/sqpack。音频只在本机读取；也可以直接拖入文件夹。</p>
 </dialog>
 <div id="language-menu" class="language-menu" popover><button type="button" class="language-option" data-language="zh" data-i18n="language.zh" aria-pressed="true">简体中文</button><button type="button" class="language-option" data-language="en" data-i18n="language.en" aria-pressed="false">English</button><button type="button" class="language-option" data-language="ja" data-i18n="language.ja" aria-pressed="false">日本語</button></div>
-<script type="module" src="./app.js?v=20260913-29"></script>
+<script type="module" src="./app.js?v=20260913-30"></script>
 </body></html>
