@@ -1,10 +1,14 @@
+import { bgmLocations } from './bgm-location-i18n.js';
+
 export function cleanTitle(value = '') {
   return value.split(' / ').map(part => part.replace(/\*+\s*$/, '').trim()).join(' / ');
 }
 const USAGE_FIELDS = ['uses', 'dungeons', 'maps', 'seasonalEvents', 'events'];
-export function trackUsage(track) {
+export function trackUsage(track, locale = 'zh') {
   const source = track && typeof track === 'object' ? track : {};
-  const values = USAGE_FIELDS.flatMap(field => Array.isArray(source[field]) ? source[field] : [])
+  const curated = bgmLocations(source.bgmIds, locale);
+  const localized = Array.isArray(source.usageByLocale?.[locale]) ? source.usageByLocale[locale] : [];
+  const values = (curated.length ? curated : localized.length ? localized : USAGE_FIELDS.flatMap(field => Array.isArray(source[field]) ? source[field] : []))
     .map(value => String(value).trim()).filter(Boolean);
   return [...new Set(values)].join('、') || '-';
 }

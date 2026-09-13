@@ -6,43 +6,43 @@
 <title>XIV Chocobox · 陆行鸟音乐盒</title><link rel="icon" href="data:,"><link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<header class="topbar"><div class="brand"><span aria-hidden="true">♫</span><strong>XIV Chocobox</strong><span class="muted">陆行鸟音乐盒</span></div><div class="header-actions"><button id="settings-open" class="icon-button" aria-label="设置" title="设置" data-icon="settings"></button></div></header>
+<header class="topbar"><div class="brand"><span aria-hidden="true">♫</span><strong>XIV Chocobox</strong><span class="muted" data-i18n="brand.subtitle">陆行鸟音乐盒</span></div><div class="header-actions"><select id="language-select" class="language-select" data-i18n-aria-label="language.label" data-i18n-title="language.label"><option value="zh">简体中文</option><option value="en">English</option><option value="ja">日本語</option></select><button id="settings-open" class="icon-button" data-i18n-aria-label="settings" data-i18n-title="settings" data-icon="settings"></button></div></header>
 <main class="workspace">
-<section class="library" aria-label="曲库">
-<div class="library-heading"><h1>我的曲库</h1><span id="track-count" class="muted">尚未载入</span></div>
-<label class="search"><span class="sr-only">搜索曲名或资源名</span><input id="search" type="search" placeholder="搜索音乐" disabled></label>
-<div class="library-filters"><div class="filters" role="group" aria-label="曲目类型"><button class="filter active" data-kind="orchestrion" aria-pressed="true">管弦乐谱</button><button class="filter" data-kind="bgm" aria-pressed="false">游戏配乐</button></div><div class="feature-filters" role="group" aria-label="曲目特征筛选"><button class="feature-filter" data-feature="loop" aria-pressed="false" title="只显示有循环的曲目" aria-label="有循环" data-icon="repeat"></button><button class="feature-filter" data-feature="variant" aria-pressed="false" title="只显示有变体的曲目" aria-label="有变体" data-icon="variant"></button></div></div>
-<p id="library-status" class="status" role="status">选择游戏根目录或 game 文件夹，即可载入曲库。</p><div id="tracks" class="tracks" aria-label="曲目列表"></div>
+<section class="library" data-i18n-aria-label="library">
+<div class="library-heading"><h1 data-i18n="library.title">我的曲库</h1><span id="track-count" class="muted">尚未载入</span></div>
+<label class="search"><span class="sr-only" data-i18n="library.searchAria">搜索曲名或资源名</span><input id="search" type="search" data-i18n-placeholder="library.searchPlaceholder" placeholder="搜索音乐" disabled></label>
+<div class="library-filters"><div class="filters" role="group" data-i18n-aria-label="library.trackType"><button class="filter active" data-kind="orchestrion" aria-pressed="true" data-i18n="library.orchestrion">管弦乐谱</button><button class="filter" data-kind="bgm" aria-pressed="false" data-i18n="library.bgm">游戏配乐</button></div><div class="feature-filters" role="group" data-i18n-aria-label="library.featureFilters"><button class="feature-filter" data-feature="loop" aria-pressed="false" data-i18n-title="library.hasLoopTitle" data-i18n-aria-label="library.hasLoop" title="只显示有循环的曲目" aria-label="有循环" data-icon="repeat"></button><button class="feature-filter" data-feature="variant" aria-pressed="false" data-i18n-title="library.hasVariantTitle" data-i18n-aria-label="library.hasVariant" title="只显示有变体的曲目" aria-label="有变体" data-icon="variant"></button></div></div>
+<p id="library-status" class="status" role="status" data-i18n="library.initialStatus">选择游戏根目录或 game 文件夹，即可载入曲库。</p><div id="tracks" class="tracks" data-i18n-aria-label="library.trackList" aria-label="曲目列表"></div>
 </section>
-<section class="player" aria-label="播放器"><div class="player-content">
-<div id="cover" class="cover" role="img" aria-label="默认音乐封面"><span data-icon="music" aria-hidden="true"></span><span class="cover-caption">XIV Chocobox</span></div>
-<div class="track-title"><p id="track-category" class="muted">FINAL FANTASY XIV</p><h2 id="title">让旋律继续</h2><p id="description">从曲库选择一首音乐</p></div>
-<div class="timeline-panel"><div class="timeline-caption"><span id="playback-label">播放进度</span><span id="position-label" class="time">00:00 / 00:00</span></div>
-<div id="timeline" class="timeline" aria-busy="false"><div id="loop-band" class="loop-band" hidden></div><div id="played" class="played"></div><div id="marks" class="marks debug-only"></div><div class="loading-shimmer"></div><div class="switch-flash"></div><input id="seek" type="range" min="0" max="1" value="0" step="0.01" disabled aria-label="播放进度"></div>
+<section class="player" data-i18n-aria-label="player"><div class="player-content">
+<div id="cover" class="cover" role="img" data-i18n-aria-label="cover.default" aria-label="默认音乐封面"><span data-icon="music" aria-hidden="true"></span><span class="cover-caption">XIV Chocobox</span></div>
+<div class="track-title"><p id="track-category" class="muted">FINAL FANTASY XIV</p><h2 id="title" data-i18n="player.continue">让旋律继续</h2><p id="description" data-i18n="player.selectTrack">从曲库选择一首音乐</p></div>
+<div class="timeline-panel"><div class="timeline-caption"><span id="playback-label" data-i18n="player.progress">播放进度</span><span id="position-label" class="time">00:00 / 00:00</span></div>
+<div id="timeline" class="timeline" aria-busy="false"><div id="loop-band" class="loop-band" hidden></div><div id="played" class="played"></div><div id="marks" class="marks debug-only"></div><div class="loading-shimmer"></div><div class="switch-flash"></div><input id="seek" type="range" min="0" max="1" value="0" step="0.01" data-i18n-aria-label="player.progress" aria-label="播放进度"></div>
 <div class="playback-hints">
-<div class="hint-side hint-side-left"><button id="loop-toggle" class="hint-icon-button" disabled popovertarget="loop-menu" aria-label="曲内循环设置" title="曲内循环设置"><span data-icon="repeat" aria-hidden="true"></span></button><span id="loop-status" class="hint-status" aria-live="polite"></span></div>
-<div class="hint-side hint-side-right"><span id="variant-status" class="hint-status" aria-live="polite"></span><button id="variant-toggle" class="hint-icon-button" disabled aria-label="切换变体" title="此曲目没有可切换变体"><span data-icon="variant" aria-hidden="true"></span></button></div>
+<div class="hint-side hint-side-left"><button id="loop-toggle" class="hint-icon-button" disabled popovertarget="loop-menu" data-i18n-aria-label="loop.title" data-i18n-title="loop.title" aria-label="曲内循环设置" title="曲内循环设置"><span data-icon="repeat" aria-hidden="true"></span></button><span id="loop-status" class="hint-status" aria-live="polite"></span></div>
+<div class="hint-side hint-side-right"><span id="variant-status" class="hint-status" aria-live="polite"></span><button id="variant-toggle" class="hint-icon-button" disabled data-i18n-aria-label="variant.switch" data-i18n-title="variant.none" aria-label="切换变体" title="此曲目没有可切换变体"><span data-icon="variant" aria-hidden="true"></span></button></div>
 </div></div>
 <div class="transport">
-<button id="info-toggle" class="icon-button" disabled aria-label="曲目信息" title="曲目信息" data-icon="info"></button>
-<button id="previous" class="icon-button" disabled aria-label="上一首" title="上一首" data-icon="previous"></button>
-<button id="play" class="icon-button play" disabled aria-label="播放" title="播放" data-icon="play"></button>
-<button id="next" class="icon-button" disabled aria-label="下一首" title="下一首" data-icon="next"></button>
+<button id="info-toggle" class="icon-button" disabled data-i18n-aria-label="player.info" data-i18n-title="player.info" aria-label="曲目信息" title="曲目信息" data-icon="info"></button>
+<button id="previous" class="icon-button" disabled data-i18n-aria-label="player.previous" data-i18n-title="player.previous" aria-label="上一首" title="上一首" data-icon="previous"></button>
+<button id="play" class="icon-button play" disabled data-i18n-aria-label="player.play" data-i18n-title="player.play" aria-label="播放" title="播放" data-icon="play"></button>
+<button id="next" class="icon-button" disabled data-i18n-aria-label="player.next" data-i18n-title="player.next" aria-label="下一首" title="下一首" data-icon="next"></button>
 <button id="playback-order" class="icon-button" aria-label="播放顺序：顺序播放" title="播放顺序：顺序播放（点击切换）"><span id="playback-order-icon" data-icon="order" aria-hidden="true"></span></button>
 </div>
-<label class="volume"><span data-icon="volume" aria-hidden="true"></span><span class="sr-only">音量</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="音量"></label>
+<label class="volume"><span data-icon="volume" aria-hidden="true"></span><span class="sr-only" data-i18n="player.volume">音量</span><input id="volume" type="range" min="0" max="1" step="0.01" data-i18n-aria-label="player.volume" aria-label="音量"></label>
 <p id="player-status" class="status" role="status"></p>
 </div></section>
 </main>
-<footer>音乐来自你的本地游戏<span>v26</span></footer>
-<div id="loop-menu" class="popover" popover><h3>曲内循环</h3><div class="loop-controls"><label>播放方式<select id="loop-mode"><option value="off">关闭</option><option value="finite" selected>有限次数</option><option value="infinite">无限循环</option></select></label><label id="limit-label" class="limit">播放<input id="loop-limit" type="number" min="1" max="999" step="1" value="3" aria-label="循环区间播放次数">遍</label></div><p class="muted">次数包含循环段首次播放，结束后继续尾声。</p><p id="loop-range" class="muted"></p></div>
-<dialog id="track-info-menu" aria-labelledby="track-info-heading"><div class="dialog-heading"><h2 id="track-info-heading">曲目信息</h2><button id="track-info-close" class="icon-button" aria-label="关闭曲目信息" title="关闭曲目信息" data-icon="close"></button></div><p id="info-category" class="muted"></p><h3 id="info-title">让旋律继续</h3><p id="info-description" class="info-description">选择一首曲目后，这里会显示曲目信息。</p><dl id="info-summary"></dl><details id="track-details" class="debug-only" hidden><summary>技术信息</summary><span id="codec" class="badge"></span><dl id="metadata"></dl></details></dialog>
-<dialog id="settings-menu"><div class="dialog-heading"><h2>设置</h2><button id="settings-close" class="icon-button" aria-label="关闭设置" data-icon="close"></button></div>
-<div class="setting-row directory-setting"><span>资源目录<small id="directory-path" title="尚未选择">尚未选择</small></span><button id="directory-select" class="button">重新选择</button></div>
-<label class="setting-row"><span>多声道试听<small>手动选择声道或立体声轨</small></span><input id="show-channels" type="checkbox"></label>
-<label class="setting-row"><span>显示技术信息<small>在曲目信息中显示资源路径、编码详情与切换节点</small></span><input id="show-debug" type="checkbox"></label>
-<section id="channel-panel" class="channel-panel" hidden aria-label="多声道试听"><div class="channel-heading"><h3>多声道试听</h3><button id="channel-all" class="button">全部声道</button></div><p id="channel-help" class="muted"></p><div id="channel-presets" class="channel-presets"></div><div id="channel-buttons" class="channel-buttons"></div></section>
-<p class="muted settings-footnote">选择游戏根目录或 game 文件夹，程序会自动寻找其中的 game/sqpack。音频只在本机读取；也可以直接拖入文件夹。</p>
+<footer><span data-i18n="footer.source">音乐来自你的本地游戏</span><span>v27</span></footer>
+<div id="loop-menu" class="popover" popover><h3 data-i18n="loop.title">曲内循环</h3><div class="loop-controls"><label><span data-i18n="loop.mode">播放方式</span><select id="loop-mode"><option value="off" data-i18n="loop.off">关闭</option><option value="finite" selected data-i18n="loop.finite">有限次数</option><option value="infinite" data-i18n="loop.infinite">无限循环</option></select></label><label id="limit-label" class="limit"><span data-i18n="loop.limitPrefix">播放</span><input id="loop-limit" type="number" min="1" max="999" step="1" value="3" data-i18n-aria-label="loop.limitAria" aria-label="循环区间播放次数"><span data-i18n="loop.limitSuffix">遍</span></label></div><p class="muted" data-i18n="loop.help">次数包含循环段首次播放，结束后继续尾声。</p><p id="loop-range" class="muted"></p></div>
+<dialog id="track-info-menu" aria-labelledby="track-info-heading"><div class="dialog-heading"><h2 id="track-info-heading" data-i18n="player.info">曲目信息</h2><button id="track-info-close" class="icon-button" data-i18n-aria-label="dialog.close" data-i18n-title="dialog.close" aria-label="关闭" title="关闭" data-icon="close"></button></div><p id="info-category" class="muted"></p><h3 id="info-title" data-i18n="info.title">让旋律继续</h3><p id="info-description" class="info-description" data-i18n="info.description">选择一首曲目后，这里会显示曲目信息。</p><dl id="info-summary"></dl><details id="track-details" class="debug-only" hidden><summary data-i18n="info.technical">技术信息</summary><span id="codec" class="badge"></span><dl id="metadata"></dl></details></dialog>
+<dialog id="settings-menu"><div class="dialog-heading"><h2 data-i18n="settings">设置</h2><button id="settings-close" class="icon-button" data-i18n-aria-label="dialog.close" data-i18n-title="dialog.close" aria-label="关闭" title="关闭" data-icon="close"></button></div>
+<div class="setting-row directory-setting"><span><span data-i18n="settings.directory">资源目录</span><small id="directory-path" data-i18n-title="settings.notSelected" title="尚未选择" data-i18n="settings.notSelected">尚未选择</small></span><button id="directory-select" class="button" data-i18n="settings.chooseAgain">重新选择</button></div>
+<label class="setting-row"><span><span data-i18n="settings.multichannel">多声道试听</span><small data-i18n="settings.multichannelHelp">手动选择声道或立体声轨</small></span><input id="show-channels" type="checkbox"></label>
+<label class="setting-row"><span><span data-i18n="settings.debug">显示技术信息</span><small data-i18n="settings.debugHelp">在曲目信息中显示资源路径、编码详情与切换节点</small></span><input id="show-debug" type="checkbox"></label>
+<section id="channel-panel" class="channel-panel" hidden data-i18n-aria-label="settings.channelPanel" aria-label="多声道试听"><div class="channel-heading"><h3 data-i18n="settings.channelPanel">多声道试听</h3><button id="channel-all" class="button" data-i18n="settings.allChannels">全部声道</button></div><p id="channel-help" class="muted"></p><div id="channel-presets" class="channel-presets"></div><div id="channel-buttons" class="channel-buttons"></div></section>
+<p class="muted settings-footnote" data-i18n="settings.directoryFootnote">选择游戏根目录或 game 文件夹，程序会自动寻找其中的 game/sqpack。音频只在本机读取；也可以直接拖入文件夹。</p>
 </dialog>
-<script type="module" src="./app.js?v=20260913-14"></script>
+<script type="module" src="./app.js?v=20260913-15"></script>
 </body></html>

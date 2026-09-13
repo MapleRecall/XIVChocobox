@@ -3,11 +3,13 @@ import { openGame } from './game-files.mjs';
 import { buildCatalog, readSheet } from '../dist/lib/excel.js';
 import { parseScd } from '../dist/lib/scd.js';
 import { iconTexturePaths } from '../dist/lib/tex.js';
-import { BGM_LOCATIONS, BGM_USAGE_OVERRIDES } from '../dist/lib/bgm-locations.js';
+import { BGM_USAGE_OVERRIDES } from '../dist/lib/bgm-locations.js';
+import { bgmLocations } from '../dist/lib/bgm-location-i18n.js';
 
 const [directory, output = 'dist/data/track-metadata.json'] = process.argv.slice(2);
 if (!directory) throw new Error('Usage: node tools/export-metadata.mjs <game-root-or-game-folder> [output.json]');
-const INSTANCE_BGM_COLUMN = 4, CONDITION_CONTENT_COLUMN = 3, CONDITION_NAME_COLUMN = 43, CONDITION_IMAGE_COLUMN = 50;
+// Column 45 is ContentFinderCondition.ContentType in the game Excel schema.
+const INSTANCE_BGM_COLUMN = 4, CONDITION_CONTENT_COLUMN = 3, CONDITION_TYPE_COLUMN = 45, CONDITION_NAME_COLUMN = 43, CONDITION_IMAGE_COLUMN = 50;
 const TERRITORY_CONDITION_COLUMN = 10, TERRITORY_BGM_SITUATION_COLUMN = 19, TERRITORY_PLACE_COLUMN = 5, SITUATION_BGM_COLUMNS = [0, 1, 2, 3, 4];
 let previous = {};
 try { previous = JSON.parse(await readFile(output, 'utf8')).tracks || {}; }
@@ -28,7 +30,8 @@ for (const [id, row] of conditions.rows) {
   const imageId = Number.isInteger(row[CONDITION_IMAGE_COLUMN]) && row[CONDITION_IMAGE_COLUMN] > 0 ? row[CONDITION_IMAGE_COLUMN] : null;
   if (!Number.isInteger(contentId) || contentId <= 0 || (!name && !imageId)) continue;
   const matches = conditionsByContent.get(contentId) || [];
-  matches.push({ id, name, imageId }); conditionsByContent.set(contentId, matches);
+  const contentType = Number.isInteger(row[CONDITION_TYPE_COLUMN]) ? row[CONDITION_TYPE_COLUMN] : 0;
+  matches.push({ id, name, imageId, contentType }); conditionsByContent.set(contentId, matches);
 }
 const contextsByBgm = new Map();
 function addContext(bgmId, context) {
@@ -37,12 +40,29 @@ function addContext(bgmId, context) {
   if (!matches.some(item => item.key === context.key)) matches.push(context);
   contextsByBgm.set(bgmId, matches);
 }
-function curatedUsage(bgmIds) {
-  const names = [], imageIds = [];
+// ContentFinderCondition.ContentType lets reused tracks keep their real duty
+// context ahead of Gold Saucer, minigame, quest-battle, and other special rows.
+// For example, BGM row 149 is linked to The Praetorium (type 2) as well as
+// Gold Saucer rows (type 19); the normal duty wins and the special reuse stays
+// available only when no stronger duty context exists.
+const PRIMARY_CONTENT_TYPES = new Set([2, 4, 5, 21, 28, 30, 37, 38]);
+const SECONDARY_CONTENT_TYPES = new Set([26, 27, 29]);
+const LOW_PRIORITY_CONTENT_TYPES = new Set([7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19, 31, 32, 35, 36]);
+function contextPriority(context) {
+  if (PRIMARY_CONTENT_TYPES.has(context.contentType)) return 0;
+  if (SECONDARY_CONTENT_TYPES.has(context.contentType)) return 1;
+  if (LOW_PRIORITY_CONTENT_TYPES.has(context.contentType)) return 3;
+  return 2;
+}
+function preferredContexts(contexts) {
+  if (!contexts.length) return [];
+  const best = Math.min(...contexts.map(contextPriority));
+  return contexts.filter(context => contextPriority(context) === best);
+}
+function curatedUsage(bgmIds, locale) {
+  const names = bgmLocations(bgmIds, locale), imageIds = [];
   for (const bgmId of bgmIds) {
     const override = BGM_USAGE_OVERRIDES[bgmId];
-    const overrideNames = Array.isArray(override?.names) ? override.names : BGM_LOCATIONS[bgmId] ? [BGM_LOCATIONS[bgmId]] : [];
-    for (const name of overrideNames) if (name && !names.includes(name)) names.push(name);
     for (const imageId of Array.isArray(override?.imageIds) ? override.imageIds : []) if (Number.isInteger(imageId) && imageId > 0 && !imageIds.includes(imageId)) imageIds.push(imageId);
   }
   return { names, imageIds };
@@ -59,7 +79,8 @@ for (const [territoryId, row] of territories.rows) {
   const name = placeName || (typeof condition[CONDITION_NAME_COLUMN] === 'string' ? condition[CONDITION_NAME_COLUMN].trim() : '');
   const imageId = Number.isInteger(condition[CONDITION_IMAGE_COLUMN]) && condition[CONDITION_IMAGE_COLUMN] > 0 ? condition[CONDITION_IMAGE_COLUMN] : null;
   if (!name && !imageId) continue;
-  for (const column of SITUATION_BGM_COLUMNS) addContext(situation[column], { key: `territory:${territoryId}:${conditionId}`, id: conditionId, name, imageId });
+  const contentType = Number.isInteger(condition[CONDITION_TYPE_COLUMN]) ? condition[CONDITION_TYPE_COLUMN] : 0;
+  for (const column of SITUATION_BGM_COLUMNS) addContext(situation[column], { key: `territory:${territoryId}:${conditionId}`, id: conditionId, name, imageId, contentType });
 }
 const bgmIdsByPath = new Map();
 for (const track of catalog.tracks) if (track.kind === 'bgm') bgmIdsByPath.set(track.path.toLowerCase(), track.bgmIds || [track.rowId]);
@@ -69,22 +90,28 @@ for (const [index, path] of paths.entries()) {
   const { ogg, hca, reason, ...metadata } = parseScd(await pack.read(path));
   const bgmIds = bgmIdsByPath.get(path) || [];
   const contexts = bgmIds.flatMap(id => contextsByBgm.get(id) || []).filter((context, position, all) => all.findIndex(item => item.key === context.key) === position);
-  const dungeons = contexts.map(context => context.name).filter(Boolean).filter((name, position, all) => all.indexOf(name) === position);
-  const curated = curatedUsage(bgmIds);
-  const inferredCoverIds = contexts.map(context => context.imageId).filter(Number.isInteger).filter((id, position, all) => all.indexOf(id) === position);
+  const relevantContexts = preferredContexts(contexts);
+  const dungeons = relevantContexts.map(context => context.name).filter(Boolean).filter((name, position, all) => all.indexOf(name) === position);
+  const curatedByLocale = Object.fromEntries(['zh', 'en', 'ja'].map(locale => [locale, curatedUsage(bgmIds, locale)]));
+  const inferredCoverIds = relevantContexts.map(context => context.imageId).filter(Number.isInteger).filter((id, position, all) => all.indexOf(id) === position);
   const old = previous[path] || {};
   const oldCoverIds = Array.isArray(old.coverTextureIds) ? old.coverTextureIds : Number.isInteger(old.coverTextureId) ? [old.coverTextureId] : [];
   const oldCoverPaths = Array.isArray(old.coverTexturePaths) ? old.coverTexturePaths : old.coverTexturePath ? [old.coverTexturePath] : [];
   const oldDungeons = Array.isArray(old.dungeons) ? old.dungeons : [];
   const oldUses = Array.isArray(old.uses) ? old.uses : [];
-  const uses = dungeons.length ? dungeons : curated.names.length ? curated.names : oldUses.length ? oldUses : oldDungeons;
-  const automaticCoverIds = inferredCoverIds.length ? inferredCoverIds : curated.imageIds;
+  const usageByLocale = Object.fromEntries(['zh', 'en', 'ja'].map(locale => {
+    const curated = curatedByLocale[locale].names;
+    return [locale, curated.length ? curated : dungeons.length ? dungeons : oldUses.length ? oldUses : oldDungeons];
+  }));
+  const uses = usageByLocale.zh;
+  const automaticCoverIds = inferredCoverIds.length ? inferredCoverIds : curatedByLocale.zh.imageIds;
   const coverTextureIds = automaticCoverIds.length ? automaticCoverIds : oldCoverIds;
   const coverTexturePaths = automaticCoverIds.length ? coverTextureIds.flatMap(iconTexturePaths) : oldCoverPaths.length ? oldCoverPaths : coverTextureIds.flatMap(iconTexturePaths);
   tracks[path] = {
     ...metadata,
     dungeons: dungeons.length ? dungeons : oldDungeons,
     uses,
+    usageByLocale,
     coverTextureIds,
     coverTexturePaths,
     coverTextureId: coverTextureIds[0] ?? null,

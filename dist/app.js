@@ -1,6 +1,7 @@
-import { Player } from './lib/player.js?v=20260913-14';
-import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-14';
-import { iconTexturePaths } from './lib/tex.js?v=20260913-14';
+import { Player } from './lib/player.js?v=20260913-15';
+import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-15';
+import { iconTexturePaths } from './lib/tex.js?v=20260913-15';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-15';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -13,10 +14,10 @@ let coverObjectUrl = null, coverRequestId = 0;
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
 let metadataCache = readMetadataCache(), cacheWriteTimer = null;
 const PLAYBACK_ORDERS = [
-  { mode: 'sequential', label: '顺序播放', icon: 'order' },
-  { mode: 'repeat-all', label: '全部循环', icon: 'repeat' },
-  { mode: 'repeat-one', label: '单曲循环', icon: 'repeatOne' },
-  { mode: 'shuffle', label: '随机播放', icon: 'shuffle' },
+  { mode: 'sequential', label: 'playback.sequential', icon: 'order' },
+  { mode: 'repeat-all', label: 'playback.repeatAll', icon: 'repeat' },
+  { mode: 'repeat-one', label: 'playback.repeatOne', icon: 'repeatOne' },
+  { mode: 'shuffle', label: 'playback.shuffle', icon: 'shuffle' },
 ];
 let lastVariant = null, filteredRenderTimer = null, playbackMode = 'sequential', finishHandledTrackId = null;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
@@ -33,8 +34,8 @@ worker.onmessage = ({ data }) => {
   if (data.type === 'error') entry.reject(new Error(data.message)); else entry.resolve(data.result);
 };
 worker.onerror = () => {
-  for (const entry of pending.values()) entry.reject(new Error('资源读取程序异常，请刷新网页重试。'));
-  pending.clear(); status('library-status', '资源读取程序异常，请刷新网页重试。', true);
+  for (const entry of pending.values()) entry.reject(new Error(t('status.workerError')));
+  pending.clear(); status('library-status', t('status.workerError'), true);
 };
 function request(type, payload = {}, progress) {
   return new Promise((resolve, reject) => {
@@ -44,6 +45,18 @@ function request(type, payload = {}, progress) {
 }
 function status(id, message, error = false) { $(id).textContent = message; $(id).classList.toggle('error', error); }
 function currentPlaybackOrder() { return PLAYBACK_ORDERS.find(order => order.mode === playbackMode) || PLAYBACK_ORDERS[0]; }
+function orderLabel(order = currentPlaybackOrder()) { return t(order.label); }
+function languageSeparator() { return t('directory.separator'); }
+function trackCategory(track) { return track?.kind === 'orchestrion' ? t('library.orchestrion') : t('library.bgm'); }
+function applyLanguage() {
+  applyStaticTranslations();
+  $('language-select').value = getLanguage();
+  updatePlaybackOrder();
+  renderTracks();
+  renderTrackInfo();
+  if (info) renderChannels(info.channels);
+  renderState(player.state);
+}
 function persistPreferences() {
   try {
     localStorage.setItem('xiv-player-preferences', JSON.stringify({
@@ -57,8 +70,9 @@ function persistPreferences() {
 function updatePlaybackOrder() {
   const order = currentPlaybackOrder();
   const button = $('playback-order');
-  button.title = `播放顺序：${order.label}（点击切换）`;
-  button.setAttribute('aria-label', `播放顺序：${order.label}`);
+  const label = orderLabel(order);
+  button.title = t('playback.orderTitle', { mode: label });
+  button.setAttribute('aria-label', t('playback.orderTitle', { mode: label }));
   button.classList.toggle('active', order.mode !== 'sequential');
   setIcon($('playback-order-icon'), order.icon);
 }
@@ -67,7 +81,7 @@ function setPlaybackMode(mode, announce = true) {
   playbackMode = mode;
   updatePlaybackOrder();
   persistPreferences();
-  if (announce) status('player-status', `播放顺序：${currentPlaybackOrder().label}`);
+  if (announce) status('player-status', t('status.orderChanged', { mode: orderLabel() }));
   if (player.state.finished && selected && info && mode !== 'sequential') {
     finishHandledTrackId = null;
     handlePlayerState(player.state);
@@ -125,7 +139,7 @@ function handlePlayerState(state) {
 function syncLoading() {
   $('timeline').classList.toggle('is-loading', loading);
   $('timeline').setAttribute('aria-busy', String(loading));
-  $('playback-label').textContent = loading ? '正在载入…' : '播放进度';
+  $('playback-label').textContent = loading ? t('player.loadingProgress') : t('player.progress');
 }
 function applySettings() {
   document.body.classList.toggle('show-debug', $('show-debug').checked);
@@ -165,16 +179,17 @@ function hydrateMetadataCache() {
     track.coverTexturePath = coverPaths[0] ?? null;
     track.dungeons = Array.isArray(preset?.dungeons) ? preset.dungeons : [];
     track.uses = Array.isArray(preset?.uses) ? preset.uses : [];
+    track.usageByLocale = preset?.usageByLocale && typeof preset.usageByLocale === 'object' ? preset.usageByLocale : {};
     if (!cached) continue;
     track.metadata = { ready: true, ...cached };
     if (cached.codec) track.codec = cached.codec;
   }
 }
 function trackFormat(track) {
-  if (!track.available) return '不可用';
-  if (!track.metadata?.ready) return '读取中…';
-  if (track.metadata.error) return track.metadata.codec || '不可用';
-  return track.metadata.codec || track.codec || '未知格式';
+  if (!track.available) return t('track.unavailable');
+  if (!track.metadata?.ready) return t('track.loading');
+  if (track.metadata.error) return track.metadata.codec || t('track.unavailable');
+  return track.metadata.codec || track.codec || t('track.unknownFormat');
 }
 function trackDuration(track) {
   return track.metadata?.ready && Number.isFinite(track.metadata.duration) ? time(track.metadata.duration) : '--:--';
@@ -183,14 +198,14 @@ function trackResourceSubtitle(track) {
   return track.available ? track.path.split('/').pop().replace('.scd', '') : track.unavailableReason || '-';
 }
 function trackSubtitle(track) {
-  return track.available && !$('show-debug').checked ? trackUsage(track) : trackResourceSubtitle(track);
+  return track.available && !$('show-debug').checked ? trackUsage(track, getLanguage()) : trackResourceSubtitle(track);
 }
 function buildTrackMetadata(track) {
   const metadata = document.createElement('span'); metadata.className = 'track-meta';
   const format = document.createElement('span'); format.className = 'track-format'; format.textContent = trackFormat(track); metadata.append(format);
   const ready = Boolean(track.metadata?.ready && !track.metadata.error);
-  const loop = document.createElement('span'); loop.className = 'track-icon loop-icon'; loop.textContent = '↻'; loop.title = ready ? (track.metadata.hasLoop ? '有循环' : '无循环') : '循环信息读取中'; loop.setAttribute('role', 'img'); loop.setAttribute('aria-label', loop.title); loop.classList.toggle('active', Boolean(ready && track.metadata.hasLoop)); metadata.append(loop);
-  const variant = document.createElement('span'); variant.className = 'track-icon variant-icon'; variant.textContent = '♬'; variant.title = ready ? (track.metadata.hasVariant ? '有变体' : '无变体') : '变体信息读取中'; variant.setAttribute('role', 'img'); variant.setAttribute('aria-label', variant.title); variant.classList.toggle('active', Boolean(ready && track.metadata.hasVariant)); metadata.append(variant);
+  const loop = document.createElement('span'); loop.className = 'track-icon loop-icon'; loop.textContent = '↻'; loop.title = ready ? (track.metadata.hasLoop ? t('track.hasLoop') : t('track.noLoop')) : t('track.loopLoading'); loop.setAttribute('role', 'img'); loop.setAttribute('aria-label', loop.title); loop.classList.toggle('active', Boolean(ready && track.metadata.hasLoop)); metadata.append(loop);
+  const variant = document.createElement('span'); variant.className = 'track-icon variant-icon'; variant.textContent = '♬'; variant.title = ready ? (track.metadata.hasVariant ? t('track.hasVariant') : t('track.noVariant')) : t('track.variantLoading'); variant.setAttribute('role', 'img'); variant.setAttribute('aria-label', variant.title); variant.classList.toggle('active', Boolean(ready && track.metadata.hasVariant)); metadata.append(variant);
   return metadata;
 }
 function updateTrackRow(track) {
@@ -239,11 +254,11 @@ function startMetadataScan(kind = filter) {
         if (scan !== metadataScanId) return;
         applyTrackMetadata(path, {}, true);
       }
-      if (scan === metadataScanId) status('library-status', `正在补充曲目信息 ${index + 1}/${pendingPaths.length}…`);
+      if (scan === metadataScanId) status('library-status', t('library.scanning', { current: index + 1, total: pendingPaths.length }));
     }
     if (scan === metadataScanId) status('library-status', '');
   })().catch(error => {
-    if (scan === metadataScanId) status('library-status', error.message || '曲目详情读取失败。', true);
+    if (scan === metadataScanId) status('library-status', error.message || t('library.scanError'), true);
   });
 }
 function renderTracks() {
@@ -267,9 +282,9 @@ function renderTracks() {
     summary.append(badge, metadata); button.append(number, content, summary);
     button.addEventListener('click', () => selectTrack(track)); fragment.append(button); trackRows.set(track.id, button);
   }
-  if (!filtered.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = catalog.length ? '没有找到匹配的曲目。' : '曲库将在这里显示。'; fragment.append(p); }
+  if (!filtered.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = catalog.length ? t('library.noMatch') : t('library.empty'); fragment.append(p); }
   $('tracks').replaceChildren(fragment);
-  $('track-count').textContent = catalog.length ? `${filtered.length} 首` : '尚未载入';
+  $('track-count').textContent = catalog.length ? t('library.trackCount', { count: filtered.length }) : t('library.notLoaded');
   updateNavigationControls();
 }
 async function openDirectory(directory) {
@@ -280,9 +295,9 @@ async function openDirectory(directory) {
   const result = await request('open', { directory }, message => status('library-status', message));
   presetMetadata = await presetReady;
   catalog = result.tracks.map(track => ({ ...track, title: cleanTitle(track.title) })); hydrateMetadataCache(); $('search').disabled = false;
-  libraryLabel = `${directory.name} · ${result.repositories.join('、')}`;
+  libraryLabel = `${directory.name} · ${result.repositories.join(languageSeparator())}`;
   $('directory-path').textContent = libraryLabel;
-  $('directory-path').title = `已选择：${libraryLabel}`;
+  $('directory-path').title = t('directory.selectedTitle', { label: libraryLabel });
   status('library-status', '');
   startMetadataScan(filter);
 }
@@ -300,18 +315,18 @@ async function chooseDirectory() {
 function renderTrackInfo() {
   const track = selected;
   const hasInfo = Boolean(track && info);
-  $('info-category').textContent = track ? (track.kind === 'orchestrion' ? '管弦乐谱' : '游戏配乐') : 'FINAL FANTASY XIV';
-  $('info-title').textContent = track?.title || '让旋律继续';
-  $('info-description').textContent = track?.description || (hasInfo ? '本地游戏资源' : '选择一首曲目后，这里会显示曲目信息。');
+  $('info-category').textContent = track ? trackCategory(track) : 'FINAL FANTASY XIV';
+  $('info-title').textContent = track?.title || t('info.title');
+  $('info-description').textContent = track?.description || (hasInfo ? t('player.localResource') : t('info.description'));
   const rows = hasInfo ? [
-    ['时长', time(duration)],
-    ['格式', info.codec || track.codec || '未知'],
-    ['声道', `${info.channels} 声道${info.channels === 6 ? '（3 个立体声轨）' : ''}`],
-    ['曲内循环', info.loop ? `${time(info.loop.start / info.sampleRate, true)} — ${time(info.loop.end / info.sampleRate, true)}` : '无'],
-    ['变体切换', info.channels === 6 ? '支持' : '无'],
+    [t('info.duration'), time(duration)],
+    [t('info.format'), info.codec || track.codec || t('track.unknownFormat')],
+    [t('info.channelLabel'), t('info.channels', { count: info.channels }) + (info.channels === 6 ? t('info.stereoTracks') : '')],
+    [t('info.loop'), info.loop ? `${time(info.loop.start / info.sampleRate, true)} — ${time(info.loop.end / info.sampleRate, true)}` : t('info.loopNone')],
+    [t('info.variant'), info.channels === 6 ? t('info.variantSupported') : t('info.loopNone')],
   ] : [];
-  const usage = trackUsage(track);
-  if (hasInfo && usage !== '-') rows.push(['用途', usage]);
+  const usage = trackUsage(track, getLanguage());
+  if (hasInfo && usage !== '-') rows.push([t('info.usage'), usage]);
   const fragment = document.createDocumentFragment();
   for (const [key, value] of rows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; fragment.append(dt, dd); }
   $('info-summary').replaceChildren(fragment);
@@ -324,13 +339,13 @@ function resetTrack() {
   if ($('track-info-menu').open) $('track-info-menu').close();
   $('cover').dataset.textureId = String(selected?.coverTextureId ?? '');
   $('cover').dataset.texturePath = selected?.coverTexturePath ?? '';
-  $('cover').setAttribute('aria-label', selected ? selected.title + ' · 默认封面' : '默认音乐封面');
+  $('cover').setAttribute('aria-label', selected ? t('cover.track', { title: selected.title }) : t('cover.default'));
   syncLoading();
-  $('title').textContent = selected?.title || '让旋律继续';
-  $('description').textContent = selected?.description || (selected ? '' : '从曲库选择一首音乐');
-  $('track-category').textContent = selected ? (selected.kind === 'orchestrion' ? '管弦乐谱' : '游戏配乐') : 'FINAL FANTASY XIV';
-  $('codec').textContent = '本地播放'; $('loop-band').hidden = true; $('marks').replaceChildren();
-  $('loop-range').textContent = '选曲后显示'; $('track-details').hidden = true;
+  $('title').textContent = selected?.title || t('player.continue');
+  $('description').textContent = selected?.description || (selected ? '' : t('player.selectTrack'));
+  $('track-category').textContent = selected ? trackCategory(selected) : 'FINAL FANTASY XIV';
+  $('codec').textContent = t('info.localPlayback'); $('loop-band').hidden = true; $('marks').replaceChildren();
+  $('loop-range').textContent = t('loop.rangeSelect'); $('track-details').hidden = true;
   $('play').disabled = true; $('info-toggle').disabled = true; $('seek').disabled = true;
   $('channel-panel').hidden = true; $('channel-presets').replaceChildren(); $('channel-buttons').replaceChildren(); channelSelection = null; autoVariant = false;
   $('variant-toggle').hidden = false; $('variant-toggle').disabled = true; $('variant-status').textContent = '';
@@ -344,7 +359,7 @@ async function selectTrack(track) {
   finishHandledTrackId = null;
   if ($('track-info-menu').open) $('track-info-menu').close();
   player.clear(); selected = track; info = null; duration = 0; loading = true;
-  resetTrack(); renderTracks(); status('player-status', '正在读取并解码音乐…');
+  resetTrack(); renderTracks(); status('player-status', t('status.decode'));
   // Resume must be requested while the original click has user activation.
   const activated = player.activate();
   activated.catch(() => {});
@@ -362,11 +377,11 @@ async function loadSelected(track, current) {
   if (current !== selection) return;
   track.codec = parsed.codec;
   applyTrackMetadata(track.path, parsed);
-  if (!parsed.supported) { loading = false; $('codec').textContent = parsed.codec; $('loop-status').textContent = '此资源暂不能播放'; status('player-status', parsed.reason, true); renderTracks(); return; }
+  if (!parsed.supported) { loading = false; $('codec').textContent = parsed.codec; $('loop-status').textContent = t('status.unsupported'); status('player-status', parsed.reason, true); renderTracks(); return; }
   const loaded = await player.load(parsed, () => current === selection);
   if (!loaded || current !== selection) return;
   info = parsed; delete info.ogg; delete info.hca; delete info.pcmChannels; delete info.hcaHeader; duration = loaded.duration; loading = false; syncLoading(); renderTrackInfo();
-  $('codec').textContent = `${parsed.codec} · ${parsed.channels} 声道`;
+  $('codec').textContent = `${parsed.codec} · ${t('info.channels', { count: parsed.channels })}`;
   $('seek').max = String(duration); $('seek').disabled = false; $('play').disabled = false; $('info-toggle').disabled = false;
   renderChannels(info.channels);
   autoVariant = info.channels === 6 && player.variantMode;
@@ -375,15 +390,15 @@ async function loadSelected(track, current) {
     const start = info.loop.start / info.sampleRate, end = info.loop.end / info.sampleRate;
     $('loop-band').hidden = false; $('loop-band').style.left = `${start / duration * 100}%`; $('loop-band').style.width = `${(end - start) / duration * 100}%`;
     $('loop-range').textContent = `${time(start, true)} — ${time(end, true)}`;
-  } else $('loop-range').textContent = '无循环区间';
+  } else $('loop-range').textContent = t('loop.rangeNone');
   const marks = document.createDocumentFragment();
   for (const sample of info.marks) { const mark = document.createElement('span'); mark.className = 'mark'; mark.style.left = `${Math.min(100, sample / info.sampleRate / duration * 100)}%`; marks.append(mark); }
   $('marks').replaceChildren(marks);
-  const metadata = [['路径', track.path], ['声道', `${info.channels} 声道${info.channels === 6 ? '（3 个立体声轨）' : ''}`], ['采样率', `${info.sampleRate.toLocaleString()} Hz`], ['循环来源', info.loopSource || '无'], ['循环采样点', info.loop ? `${info.loop.start} — ${info.loop.end}` : '无'], ['标记数', String(info.marks.length)]];
+  const metadata = [[t('info.path'), track.path], [t('info.channelLabel'), `${t('info.channels', { count: info.channels })}${info.channels === 6 ? t('info.stereoTracks') : ''}`], [t('info.sampleRate'), `${info.sampleRate.toLocaleString()} Hz`], [t('info.loopSource'), info.loopSource || t('info.loopNone')], [t('info.loopPoints'), info.loop ? `${info.loop.start} — ${info.loop.end}` : t('info.loopNone')], [t('info.markCount'), String(info.marks.length)]];
   const fragment = document.createDocumentFragment();
   for (const [key, value] of metadata) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; fragment.append(dt, dd); }
   $('metadata').replaceChildren(fragment); $('track-details').hidden = false;
-  status('player-status', autoVariant ? '默认播放变体 1；点击“切换变体”会在下一个节点切换，并播放过渡音。' : info.loop ? '金色区域为原始循环区间。拖动可跳转；从头播放会重新计数。' : '这首曲目没有有效循环区间，将完整播放一次。');
+  status('player-status', autoVariant ? t('info.variantStatus') : info.loop ? t('info.loopStatus') : t('info.noLoopStatus'));
   status('player-status', ''); applySettings();
   renderState(player.state); await player.play();
   void loadCover(track, current);
@@ -401,24 +416,24 @@ async function loadCover(track, current) {
       if (current !== selection || requestToken !== coverRequestId || selected !== track) return;
       const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/png');
       if (coverObjectUrl?.startsWith('blob:')) URL.revokeObjectURL(coverObjectUrl);
-      coverObjectUrl = url; $('cover').style.backgroundImage = `url("${url}")`; $('cover').classList.add('has-image'); $('cover').setAttribute('aria-label', `${track.title} · 副本封面`);
+      coverObjectUrl = url; $('cover').style.backgroundImage = `url("${url}")`; $('cover').classList.add('has-image'); $('cover').setAttribute('aria-label', t('cover.dungeon', { title: track.title }));
       return;
     } catch { /* Missing or unsupported textures fall back to the built-in cover. */ }
   }
 }
 function channelName(index, count) {
-  const names = count === 6 ? ['FL（变体 1 · 左）', 'FR（变体 2 · 左）', 'FC（变体 1 · 右）', 'LFE（过渡 · 左）', 'SL（变体 2 · 右）', 'SR（过渡 · 右）'] : count === 2 ? ['L 左', 'R 右'] : Array.from({ length: count }, (_, i) => `Ch ${i + 1}`);
-  return names[index] || `Ch ${index + 1}`;
+  const names = count === 6 ? [t('channel.variantOneLeft'), t('channel.variantTwoLeft'), t('channel.variantOneRight'), t('channel.transitionLeft'), t('channel.variantTwoRight'), t('channel.transitionRight')] : count === 2 ? [t('channel.left'), t('channel.right')] : Array.from({ length: count }, (_, i) => t('channel.number', { number: i + 1 }));
+  return names[index] || t('channel.number', { number: index + 1 });
 }
 function renderChannels(count) {
   if (count < 2) { $('channel-panel').hidden = true; return; }
-  $('channel-panel').hidden = !$('show-channels').checked; $('channel-help').textContent = count === 6 ? '当前资源为 6 声道；预设按三个立体声轨显示，不按 5.1 中置/环绕布局下混。' : `${count} 声道资源`;
+  $('channel-panel').hidden = !$('show-channels').checked; $('channel-help').textContent = count === 6 ? t('channel.helpSix') : t('channel.helpMany', { count });
   const presets = document.createDocumentFragment();
   if (count === 6) {
     const definitions = [
-      ['变体 1 · FL + FC', [0, 2]],
-      ['变体 2 · FR + SL', [1, 4]],
-      ['过渡强音 · LFE + SR', [3, 5]],
+      [t('channel.variantOne'), [0, 2]],
+      [t('channel.variantTwo'), [1, 4]],
+      [t('channel.transition'), [3, 5]],
     ];
     for (const [label, channels] of definitions) {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'channel-button'; button.textContent = label; button.dataset.channels = channels.join(','); button.setAttribute('aria-pressed', 'false');
@@ -444,59 +459,62 @@ function updateVariantControls(state = player.state) {
   button.classList.toggle('pending', enabled && Number.isInteger(state.variantPending));
   if (!enabled) {
     $('variant-status').textContent = '';
-    button.title = '此曲目没有启用变体切换'; lastVariant = null;
+    button.title = t('variant.disabled'); button.setAttribute('aria-label', t('variant.switch')); lastVariant = null;
     return;
   }
   const variant = Number.isInteger(state.variant) ? state.variant : 0;
   const selected = variant === 0 ? [0, 2] : [1, 4];
   if (channelSelection?.join(',') !== selected.join(',')) { channelSelection = selected; updateChannelSelectionButtons(); }
-  button.title = `切换到变体 ${variant === 0 ? '2' : '1'}`;
+  button.title = t('variant.to', { variant: variant === 0 ? 2 : 1 });
   button.setAttribute('aria-label', button.title);
   if (lastVariant !== null && lastVariant !== variant && !loading && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     $('timeline').querySelector('.switch-flash').animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.15 }, { opacity: 0 }], { duration: 600 });
   }
   lastVariant = variant;
   const pending = Number.isInteger(state.variantPending);
-  $('variant-status').textContent = pending ? `等待切换 · 变体 ${state.variantPending + 1}` : state.variantTransition ? `变体 ${variant + 1} · 过渡中` : `变体 ${variant + 1}`;
+  $('variant-status').textContent = pending ? t('variant.pending', { variant: state.variantPending + 1 }) : state.variantTransition ? t('variant.transition', { variant: variant + 1 }) : t('variant.label', { variant: variant + 1 });
 }
 function setAudioSelection(channels, label = '', mode = 'mono') {
-  if (!info) throw new Error('请先选择曲目。');
+  if (!info) throw new Error(t('status.selectTrack'));
   const normalized = channels === null ? null : [...new Set(channels)].filter(channel => Number.isInteger(channel));
-  if (normalized && (!normalized.length || normalized.some(channel => channel < 0 || channel >= info.channels))) throw new Error('无效的声道组合。');
+  if (normalized && (!normalized.length || normalized.some(channel => channel < 0 || channel >= info.channels))) throw new Error(t('status.invalidChannels'));
   autoVariant = false; channelSelection = normalized; player.setChannelSelection(normalized, mode); updateChannelSelectionButtons(); updateVariantControls();
-  status('player-status', normalized ? `${mode === 'pair' ? '正在按立体声轨试听' : '正在独听'} ${label || normalized.map(channel => channelName(channel, info.channels)).join(' + ')}。` : '正在播放完整多声道混音。');
+  const value = label || normalized?.map(channel => channelName(channel, info.channels)).join(' + ');
+  status('player-status', normalized ? t(mode === 'pair' ? 'status.pairListening' : 'status.soloListening', { label: value }) : t('status.fullMix'));
 }
 function renderState(state) {
   if (!dragging) { $('seek').value = String(state.position); $('played').style.width = `${duration ? Math.min(100, state.position / duration * 100) : 0}%`; }
   $('position-label').textContent = `${time(dragging ? Number($('seek').value) : state.position)} / ${time(duration)}`;
   const playable = Boolean(info && !loading);
   $('play').disabled = !playable; $('info-toggle').disabled = !playable;
-  const playLabel = state.playing ? '暂停' : state.finished ? '重播' : '播放';
+  const playLabel = state.playing ? t('player.pause') : state.finished ? t('player.replay') : t('player.play');
   $('play').title = playLabel; $('play').setAttribute('aria-label', playLabel);
   setIcon($('play'), state.playing ? 'pause' : 'play');
   $('loop-toggle').disabled = !info?.loop || loading;
   const looping = Boolean(info?.loop && player.limit !== 1);
   $('loop-toggle').classList.toggle('active', looping);
-  $('loop-toggle').title = info?.loop ? `曲内循环：${player.limit === Infinity ? '无限循环' : player.limit === 1 ? '关闭' : `${player.limit} 遍`}（点击设置）` : '此曲目没有可用的曲内循环区间';
+  const loopValue = player.limit === Infinity ? t('loop.infinite') : player.limit === 1 ? t('loop.off') : `${player.limit} ${t('loop.limitSuffix')}`;
+  $('loop-toggle').title = info?.loop ? t('loop.toggle', { value: loopValue }) : t('loop.unavailable');
   syncLoading();
-  if (!info) $('loop-status').textContent = loading ? '正在读取循环信息…' : '等待选择曲目';
-  else if (!info.loop) $('loop-status').textContent = '此曲目无循环区间';
-  else if (state.finished) $('loop-status').textContent = '播放结束';
-  else if (state.loopExited) $('loop-status').textContent = '循环段已结束，继续尾声';
-  else if (state.position < info.loop.start / info.sampleRate) $('loop-status').textContent = '前奏 · 即将进入循环段';
-  else $('loop-status').textContent = `循环段第 ${state.pass} 遍 / ${player.limit === Infinity ? '∞' : player.limit} 遍`;
+  if (!info) $('loop-status').textContent = loading ? t('loop.loading') : t('loop.waiting');
+  else if (!info.loop) $('loop-status').textContent = t('loop.none');
+  else if (state.finished) $('loop-status').textContent = t('loop.finished');
+  else if (state.loopExited) $('loop-status').textContent = t('loop.exited');
+  else if (state.position < info.loop.start / info.sampleRate) $('loop-status').textContent = t('loop.before');
+  else $('loop-status').textContent = t('loop.pass', { pass: state.pass, limit: player.limit === Infinity ? '∞' : player.limit });
   if (!info || !info.loop) $('loop-status').textContent = '';
-  else if (player.limit === 1) $('loop-status').textContent = '循环关闭';
+  else if (player.limit === 1) $('loop-status').textContent = t('loop.closed');
   updateVariantControls(state);
   updateNavigationControls();
 }
 function configureLoop(mode, limit) {
-  if (!['off', 'finite', 'infinite'].includes(mode) || !Number.isInteger(limit) || limit < 1 || limit > 999) throw new Error('循环次数必须是 1～999 的整数。');
+  if (!['off', 'finite', 'infinite'].includes(mode) || !Number.isInteger(limit) || limit < 1 || limit > 999) throw new Error(t('loop.limitError'));
   $('loop-mode').value = mode; $('loop-limit').value = String(limit); $('limit-label').hidden = mode !== 'finite';
   player.setLimit(mode === 'off' ? 1 : mode === 'infinite' ? Infinity : limit); renderState(player.state); persistPreferences();
 }
 document.querySelectorAll('[data-icon]').forEach(element => setIcon(element, element.dataset.icon));
 updatePlaybackOrder();
+$('language-select').addEventListener('change', () => { setLanguage($('language-select').value); applyLanguage(); });
 $('settings-open').addEventListener('click', () => $('settings-menu').showModal());
 $('settings-close').addEventListener('click', () => $('settings-menu').close());
 $('settings-menu').addEventListener('click', event => { if (event.target === $('settings-menu')) { const box = event.target.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) event.target.close(); } });
@@ -517,11 +535,11 @@ async function handleDirectoryDrop(event) {
   if (handle?.kind !== 'directory') {
     const file = item.getAsFile?.();
     const name = file?.name?.toLowerCase() || '';
-    status('library-status', name.endsWith('.lnk') || name.endsWith('.url') ? '浏览器无法从快捷方式本身取得文件夹权限，请直接拖入游戏根目录或 game 文件夹。' : '请直接拖入游戏根目录或 game 文件夹。', true);
+    status('library-status', name.endsWith('.lnk') || name.endsWith('.url') ? t('status.noShortcutPermission') : t('status.dropFolder'), true);
     return;
   }
   try {
-    if (handle.requestPermission && await handle.requestPermission({ mode: 'read' }) !== 'granted') throw new Error('未获得资源目录读取权限。');
+    if (handle.requestPermission && await handle.requestPermission({ mode: 'read' }) !== 'granted') throw new Error(t('status.permissionDenied'));
     lastDirectoryHandle = handle;
     try { await saveDirectoryHandle(handle); } catch { /* IndexedDB can be unavailable in private browsing. */ }
     await openDirectory(handle);
@@ -556,7 +574,7 @@ $('seek').addEventListener('input', () => { dragging = true; renderState(player.
 $('seek').addEventListener('change', () => { dragging = false; player.seek(Number($('seek').value)); });
 $('volume').addEventListener('input', () => player.setVolume(Number($('volume').value)));
 $('channel-all').addEventListener('click', () => setAudioSelection(null));
-$('variant-toggle').addEventListener('click', () => { if (player.requestVariantToggle()) $('variant-status').textContent = '等待下一个切换节点…'; });
+  $('variant-toggle').addEventListener('click', () => { if (player.requestVariantToggle()) $('variant-status').textContent = t('variant.waiting'); });
 for (const id of ['loop-mode', 'loop-limit']) $(id).addEventListener('change', () => {
   if (!$('loop-limit').checkValidity()) { $('loop-limit').reportValidity(); return; }
   configureLoop($('loop-mode').value, Number($('loop-limit').value));
@@ -570,8 +588,8 @@ try {
   }
 } catch { /* Invalid preferences leave defaults intact. */ }
 try { localStorage.removeItem('xiv-player-playback-positions-v1'); } catch {}
-if (!window.showDirectoryPicker || !window.isSecureContext) { $('directory-select').disabled = true; status('library-status', '请在新版 Chrome / Edge 中通过 HTTPS 或 localhost 打开此页面。', true); }
-renderTracks();
+if (!window.showDirectoryPicker || !window.isSecureContext) { $('directory-select').disabled = true; status('library-status', t('status.secureContext'), true); }
+applyLanguage();
 async function restoreDirectory() {
   if (!window.showDirectoryPicker || !window.isSecureContext) return;
   try {
@@ -581,9 +599,9 @@ async function restoreDirectory() {
     if (await directoryPermission(handle) === 'granted') {
       await openDirectory(handle);
     } else {
-      $('directory-path').textContent = `${handle.name}（需要重新授权）`;
-      $('directory-path').title = '点击“重新选择”以重新授权或选择其他目录';
-      status('library-status', `已记住上次目录“${handle.name}”，点击按钮恢复访问。`);
+      $('directory-path').textContent = t('settings.needsPermission', { name: handle.name });
+      $('directory-path').title = t('settings.permissionHint');
+      status('library-status', t('settings.remembered', { name: handle.name }));
     }
   } catch { /* A stale handle is harmless; the next explicit directory choice replaces it. */ }
   finally { opening = false; $('directory-select').disabled = !window.showDirectoryPicker; renderTracks(); }
@@ -593,10 +611,10 @@ void restoreDirectory();
 if (document.modelContext?.registerTool) {
   const lifecycle = new AbortController();
   const tools = [
-    { name: 'get_player_state', title: '读取播放状态', description: '读取已选择曲目、播放位置和循环设置。', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: () => ({ track: selected?.title || null, ...player.state, loopMode: player.limit === Infinity ? 'infinite' : 'finite', limit: Number.isFinite(player.limit) ? player.limit : null }) },
-    { name: 'set_loop_playback', title: '设置循环次数', description: '改变循环模式；有限次数包含循环段首次播放。', inputSchema: { type: 'object', properties: { mode: { enum: ['off', 'finite', 'infinite'] }, limit: { type: 'integer', minimum: 1, maximum: 999 } }, required: ['mode', 'limit'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { configureLoop(input.mode, input.limit); return { mode: input.mode, limit: input.limit }; } },
-    { name: 'set_audio_channel', title: '选择试听声道', description: '选择完整多声道混音，或独听某一个声道。独听会复制到左右声道。', inputSchema: { type: 'object', properties: { channel: { type: 'integer', minimum: -1, maximum: 7 } }, required: ['channel'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { setAudioSelection(input.channel < 0 ? null : [input.channel]); return { channel: input.channel, mode: input.channel < 0 ? 'all' : 'solo' }; } },
-    { name: 'set_audio_variant', title: '选择游戏变体', description: '在六声道资源中选择已识别的游戏变体立体声轨：变体 1 为 FL+FC，变体 2 为 FR+SL，过渡强音为 LFE+SR。每组第一个源声道送左声道，第二个送右声道，只输出这一组立体声。', inputSchema: { type: 'object', properties: { variant: { enum: ['all', 'one', 'two', 'transition'] } }, required: ['variant'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { const groups = { all: null, one: [0, 2], two: [1, 4], transition: [3, 5] }; if (groups[input.variant] && (!info || info.channels !== 6)) throw new Error('当前曲目不是六声道资源。'); setAudioSelection(groups[input.variant], input.variant, 'pair'); return { variant: input.variant, channels: groups[input.variant] }; } },
+    { name: 'get_player_state', title: t('mcp.readState'), description: t('mcp.readStateDescription'), inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true }, execute: () => ({ track: selected?.title || null, ...player.state, loopMode: player.limit === Infinity ? 'infinite' : 'finite', limit: Number.isFinite(player.limit) ? player.limit : null }) },
+    { name: 'set_loop_playback', title: t('mcp.setLoop'), description: t('mcp.setLoopDescription'), inputSchema: { type: 'object', properties: { mode: { enum: ['off', 'finite', 'infinite'] }, limit: { type: 'integer', minimum: 1, maximum: 999 } }, required: ['mode', 'limit'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { configureLoop(input.mode, input.limit); return { mode: input.mode, limit: input.limit }; } },
+    { name: 'set_audio_channel', title: t('mcp.setChannel'), description: t('mcp.setChannelDescription'), inputSchema: { type: 'object', properties: { channel: { type: 'integer', minimum: -1, maximum: 7 } }, required: ['channel'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { setAudioSelection(input.channel < 0 ? null : [input.channel]); return { channel: input.channel, mode: input.channel < 0 ? 'all' : 'solo' }; } },
+    { name: 'set_audio_variant', title: t('mcp.setVariant'), description: t('mcp.setVariantDescription'), inputSchema: { type: 'object', properties: { variant: { enum: ['all', 'one', 'two', 'transition'] } }, required: ['variant'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute: input => { const groups = { all: null, one: [0, 2], two: [1, 4], transition: [3, 5] }; if (groups[input.variant] && (!info || info.channels !== 6)) throw new Error(t('status.variantSixOnly')); setAudioSelection(groups[input.variant], input.variant, 'pair'); return { variant: input.variant, channels: groups[input.variant] }; } },
   ];
   for (const tool of tools) { try { Promise.resolve(document.modelContext.registerTool(tool, { signal: lifecycle.signal })).catch(() => {}); } catch { /* Optional API. */ } }
   window.addEventListener('pagehide', () => lifecycle.abort(), { once: true });

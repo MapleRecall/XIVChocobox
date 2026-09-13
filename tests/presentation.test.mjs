@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { cleanTitle, summarizeMetadata, trackUsage } from '../dist/lib/presentation.js';
+import { bgmLocation } from '../dist/lib/bgm-location-i18n.js';
 
 test('cleans annotations from each merged title but preserves interior stars', () => {
   assert.equal(cleanTitle('绚烂* / 天界**  '), '绚烂 / 天界');
@@ -12,6 +13,9 @@ test('formats extensible track usage and falls back to a dash', () => {
   assert.equal(trackUsage({}), '-');
   assert.equal(trackUsage(null), '-');
   assert.equal(trackUsage({ dungeons: ['泽梅尔要塞'], maps: ['西萨纳兰'], seasonalEvents: ['季节活动', '季节活动'] }), '泽梅尔要塞、西萨纳兰、季节活动');
+  assert.equal(trackUsage({ bgmIds: [149] }), '最终决战天幕魔导城');
+  assert.equal(trackUsage({ bgmIds: [149] }, 'en'), 'The Praetorium');
+  assert.equal(trackUsage({ bgmIds: [149] }, 'ja'), '最終決戦 魔導城プラエトリウム');
 });
 test('preset catalog summaries retain parser loop and variant decisions', async () => {
   const { schemaVersion, tracks } = JSON.parse(await readFile(new URL('../dist/data/track-metadata.json', import.meta.url)));
@@ -37,6 +41,16 @@ test('preset catalog summaries retain parser loop and variant decisions', async 
   assert.deepEqual(tracks['music/ffxiv/bgm_con_crystaltower_01.scd'].coverTextureIds, [112033]);
   assert.deepEqual(tracks['music/ffxiv/bgm_dungeon_ish_02.scd'].dungeons, ['泽梅尔要塞']);
   assert.deepEqual(tracks['music/ffxiv/bgm_dungeon_ish_02.scd'].coverTextureIds, [112013]);
-  assert.deepEqual(tracks['music/ffxiv/bgm_ban_moogle_king.scd'].uses, ['莫古力贤王歼灭战']);
+  assert.deepEqual(tracks['music/ffxiv/bgm_ban_moogle_king.scd'].uses, ['莫古力贤王歼灭战（第二阶段）']);
   assert.deepEqual(tracks['music/ffxiv/bgm_ban_moogle_king.scd'].coverTextureIds, [112031]);
+  const teikoku = tracks['music/ffxiv/bgm_con_teikoku_02.scd'];
+  assert.deepEqual(teikoku.dungeons, ['最终决战天幕魔导城']);
+  assert.deepEqual(teikoku.coverTextureIds, [112017]);
+  assert.deepEqual(teikoku.usageByLocale, {
+    zh: ['最终决战天幕魔导城'],
+    en: ['The Praetorium'],
+    ja: ['最終決戦 魔導城プラエトリウム'],
+  });
+  assert.equal(bgmLocation(149, 'zh'), '最终决战天幕魔导城');
+  assert.equal(bgmLocation(149, 'en'), 'The Praetorium');
 });
