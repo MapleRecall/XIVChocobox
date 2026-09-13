@@ -1,7 +1,7 @@
 import { Player } from './lib/player.js?v=20260913-22';
-import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-28';
+import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-29';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
-import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-29';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-30';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -19,6 +19,8 @@ const PLAYBACK_ORDERS = [
   { mode: 'repeat-one', label: 'playback.repeatOne', icon: 'repeatOne' },
   { mode: 'shuffle', label: 'playback.shuffle', icon: 'shuffle' },
 ];
+const BGM_GROUP_ORDER = ['ffxiv', 'ex1', 'ex2', 'ex3', 'ex4', 'ex5'];
+const BGM_GROUP_LABELS = { ffxiv: 'library.versionBase', ex1: 'library.version3', ex2: 'library.version4', ex3: 'library.version5', ex4: 'library.version6', ex5: 'library.version7', other: 'library.versionOther' };
 let lastVariant = null, filteredRenderTimer = null, playbackMode = 'sequential', finishHandledTrackId = null;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
   .then(response => { if (!response.ok) throw new Error('Metadata unavailable'); return response.json(); })
@@ -91,6 +93,7 @@ function applyLanguage() {
   applyStaticTranslations();
   updateLanguageMenu();
   updatePlaybackOrder();
+  updateVolumeControl();
   renderTracks();
   renderTrackInfo();
   renderPlayerDetail();
@@ -119,6 +122,17 @@ function updatePlaybackOrder() {
   button.classList.toggle('active', order.mode !== 'sequential');
   setIcon($('playback-order-icon'), order.icon);
 }
+function volumeIconName(value = player.volume) {
+  const normalized = Math.max(0, Math.min(1, Number(value) || 0));
+  return normalized <= 0.001 ? 'volumeMute' : normalized < 0.5 ? 'volumeLow' : 'volume';
+}
+function updateVolumeControl() {
+  const value = Math.max(0, Math.min(1, Number(player.volume) || 0));
+  const label = t('player.volumeValue', { value: Math.round(value * 100) });
+  setIcon($('volume-icon'), volumeIconName(value));
+  $('volume-toggle').title = label;
+  $('volume-toggle').setAttribute('aria-label', label);
+}
 function setPlaybackMode(mode, announce = true) {
   if (!PLAYBACK_ORDERS.some(order => order.mode === mode)) return;
   playbackMode = mode;
@@ -132,11 +146,17 @@ function setPlaybackMode(mode, announce = true) {
 }
 function visibleTracks() {
   const query = $('search').value.trim().toLocaleLowerCase();
-  return catalog.filter(track => track.kind === filter
+  const tracks = catalog.filter(track => track.kind === filter
     && ($('show-debug').checked || !isEmptyAudioTrack(track))
     && [...featureFilters].every(feature => track.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`])
     && `${track.title} ${Object.values(track.titleByLocale || {}).join(' ')} ${track.path} ${track.rowId}`.toLocaleLowerCase().includes(query));
+  if (filter !== 'bgm') return tracks;
+  return tracks.map((track, index) => ({ track, index }))
+    .sort((a, b) => bgmGroupRank(a.track) - bgmGroupRank(b.track) || a.index - b.index)
+    .map(entry => entry.track);
 }
+function bgmGroup(track) { return String(track?.path || '').toLowerCase().match(/^music\/(ffxiv|ex\d+)\//)?.[1] || 'other'; }
+function bgmGroupRank(track) { const group = bgmGroup(track); const rank = BGM_GROUP_ORDER.indexOf(group); return rank < 0 ? BGM_GROUP_ORDER.length : rank; }
 function isEmptyAudioTrack(track) {
   if (!track?.available) return true;
   if (!track.metadata?.ready) return false;
@@ -320,7 +340,15 @@ function renderTracks() {
   const filtered = visibleTracks();
   const fragment = document.createDocumentFragment();
   trackRows = new Map();
+  let previousGroup = null;
   for (const [index, track] of filtered.entries()) {
+    if (filter === 'bgm') {
+      const group = bgmGroup(track);
+      if (group !== previousGroup) {
+        const heading = document.createElement('h2'); heading.className = 'track-group-heading'; heading.textContent = t(BGM_GROUP_LABELS[group] || BGM_GROUP_LABELS.other); fragment.append(heading);
+        previousGroup = group;
+      }
+    }
     const button = document.createElement('button');
     button.className = 'track'; button.classList.toggle('selected', selected?.id === track.id);
     button.setAttribute('aria-pressed', String(selected?.id === track.id)); button.disabled = opening || !track.available;
@@ -644,7 +672,7 @@ $('playback-order').addEventListener('click', () => {
 });
 $('seek').addEventListener('input', () => { dragging = true; renderState(player.state); $('played').style.width = `${Number($('seek').value) / duration * 100}%`; });
 $('seek').addEventListener('change', () => { dragging = false; player.seek(Number($('seek').value)); });
-$('volume').addEventListener('input', () => player.setVolume(Number($('volume').value)));
+$('volume').addEventListener('input', () => { player.setVolume(Number($('volume').value)); updateVolumeControl(); persistPreferences(); });
 $('channel-all').addEventListener('click', () => setAudioSelection(null));
   $('variant-toggle').addEventListener('click', () => { if (player.requestVariantToggle()) $('variant-status').textContent = t('variant.waiting'); });
 for (const id of ['loop-mode', 'loop-limit']) $(id).addEventListener('change', () => {
@@ -659,6 +687,7 @@ try {
     if (PLAYBACK_ORDERS.some(order => order.mode === saved.playbackMode)) { playbackMode = saved.playbackMode; updatePlaybackOrder(); }
   }
 } catch { /* Invalid preferences leave defaults intact. */ }
+$('volume').value = String(player.volume);
 try { localStorage.removeItem('xiv-player-playback-positions-v1'); } catch {}
 if (!window.showDirectoryPicker || !window.isSecureContext) { $('directory-select').disabled = true; status('library-status', t('status.secureContext'), true); }
 applyLanguage();

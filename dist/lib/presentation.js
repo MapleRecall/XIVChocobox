@@ -39,6 +39,8 @@ const paths = {
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   variant: '<path d="M3 6h5c6 0 2 12 8 12h5m-4-4 4 4-4 4M3 18h5c2 0 3-2 4-6s2-6 4-6h5m-4-4 4 4-4 4"/>',
   volume: '<path d="m11 5-6 4H2v6h3l6 4Zm4 3a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
+  volumeLow: '<path d="m11 5-6 4H2v6h3l6 4Zm4 4a5 5 0 0 1 0 6"/>',
+  volumeMute: '<path d="m11 5-6 4H2v6h3l6 4Zm5 5 5 5m0-5-5 5"/>',
   settings: '<path d="M4 7h16M4 17h16"/><circle cx="8" cy="7" r="3"/><circle cx="16" cy="17" r="3"/>',
   music: '<path d="M9 18V5l12-3v13M9 9l12-3"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="15" rx="3" ry="3"/>',
   close: '<path d="m6 6 12 12M6 18 18 6"/>',
