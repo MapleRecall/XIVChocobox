@@ -33,3 +33,5 @@ svg{pointer-events:none}
 .directory-setting small{overflow-wrap:anywhere;line-height:1.5}
 .show-debug .track-info-menu .debug-only:not([hidden]){display:block!important}
 .drag-active .workspace{outline:1px dashed var(--cyan);outline-offset:-8px}
+.cover{width:100%;max-width:none;aspect-ratio:47 / 15}
+#info-summary:empty{display:none!important}
