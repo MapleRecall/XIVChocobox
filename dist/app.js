@@ -1,7 +1,7 @@
 import { Player } from './lib/player.js?v=20260913-22';
 import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-28';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
-import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-22';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-29';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -98,6 +98,7 @@ function applyLanguage() {
   if (catalog.length || libraryStatus) status('library-status', libraryStatus, libraryError);
   if (info) renderChannels(info.channels);
   renderState(player.state);
+  document.documentElement.classList.remove('i18n-pending');
 }
 function persistPreferences() {
   try {

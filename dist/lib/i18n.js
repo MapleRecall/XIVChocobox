@@ -516,7 +516,19 @@ const TRANSLATIONS = {
 
 const LANGUAGE_TAGS = { zh: 'zh-CN', en: 'en', ja: 'ja' };
 const LANGUAGE_STORAGE_KEY = 'xiv-player-language';
-let language = 'zh';
+function detectBrowserLanguage() {
+  if (typeof navigator === 'undefined') return 'zh';
+  const values = [...(navigator.languages || []), navigator.language];
+  for (const value of values) {
+    const tag = String(value || '').toLowerCase();
+    if (tag.startsWith('zh')) return 'zh';
+    if (tag.startsWith('ja')) return 'ja';
+    if (tag.startsWith('en')) return 'en';
+  }
+  return 'zh';
+}
+const presetLanguage = typeof document !== 'undefined' ? document.documentElement.dataset.language : '';
+let language = TRANSLATIONS[presetLanguage] ? presetLanguage : detectBrowserLanguage();
 try {
   const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
   if (saved && TRANSLATIONS[saved]) language = saved;
