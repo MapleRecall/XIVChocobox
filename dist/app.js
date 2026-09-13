@@ -7,7 +7,7 @@ import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from '.
 const $ = id => document.getElementById(id);
 const worker = new Worker(new URL('./catalog-worker.js', import.meta.url), { type: 'module' });
 const pending = new Map();
-let requestId = 0, catalog = [], filter = 'orchestrion', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
+let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
 let libraryLabel = '', metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 let coverObjectUrl = null, coverRequestId = 0;
@@ -54,6 +54,7 @@ function applyLanguage() {
   updatePlaybackOrder();
   renderTracks();
   renderTrackInfo();
+  renderPlayerDetail();
   if (info) renderChannels(info.channels);
   renderState(player.state);
 }
@@ -204,7 +205,14 @@ function trackResourceSubtitle(track) {
   return track.available ? track.path.split('/').pop().replace('.scd', '') : track.unavailableReason || '-';
 }
 function trackSubtitle(track) {
-  return track.available && !$('show-debug').checked ? trackUsage(track, getLanguage()) : trackResourceSubtitle(track);
+  return track.available && !$('show-debug').checked ? trackDisplayDetail(track) : trackResourceSubtitle(track);
+}
+function trackDisplayDetail(track) {
+  if (track?.kind === 'orchestrion') return String(track.description || '').trim() || '-';
+  return trackUsage(track, getLanguage());
+}
+function renderPlayerDetail() {
+  $('description').textContent = selected ? trackDisplayDetail(selected) : t('player.selectTrack');
 }
 function buildTrackMetadata(track) {
   const metadata = document.createElement('span'); metadata.className = 'track-meta';
@@ -348,8 +356,7 @@ function resetTrack() {
   $('cover').setAttribute('aria-label', selected ? t('cover.track', { title: selected.title }) : t('cover.default'));
   syncLoading();
   $('title').textContent = selected?.title || t('player.continue');
-  $('description').textContent = selected?.description || (selected ? '' : t('player.selectTrack'));
-  $('track-category').textContent = selected ? trackCategory(selected) : 'FINAL FANTASY XIV';
+  renderPlayerDetail();
   $('codec').textContent = t('info.localPlayback'); $('loop-band').hidden = true; $('marks').replaceChildren();
   $('loop-range').textContent = t('loop.rangeSelect'); $('track-details').hidden = true;
   $('play').disabled = true; $('info-toggle').disabled = true; $('seek').disabled = true;
