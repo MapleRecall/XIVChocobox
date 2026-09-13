@@ -32,6 +32,7 @@ const paths = {
   repeat: '<path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/>',
   repeatOne: '<path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3M12 10v6m-2-4 2-2"/>',
   shuffle: '<path d="M4 7h3c4 0 6 10 10 10h3m0 0-3-3m3 3-3 3M4 17h3c1.7 0 3-1.8 4.1-4M20 7h-3c-1.1 0-2.1.8-3 2m6-2-3-3m3 3-3 3"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   variant: '<path d="M3 6h5c6 0 2 12 8 12h5m-4-4 4 4-4 4M3 18h5c2 0 3-2 4-6s2-6 4-6h5m-4-4 4 4-4 4"/>',
   volume: '<path d="m11 5-6 4H2v6h3l6 4Zm4 3a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
   settings: '<path d="M4 7h16M4 17h16"/><circle cx="8" cy="7" r="3"/><circle cx="16" cy="17" r="3"/>',

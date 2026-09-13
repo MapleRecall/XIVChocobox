@@ -8,7 +8,7 @@ const $ = id => document.getElementById(id);
 const worker = new Worker(new URL('./catalog-worker.js?v=20260913-22', import.meta.url), { type: 'module' });
 const pending = new Map();
 let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
-let libraryLabel = '', metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
+let libraryLabel = '', libraryStatusMessage = '', libraryStatusError = false, metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
 let coverObjectUrl = null, coverRequestId = 0, playerTransitionToken = 0;
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
@@ -43,7 +43,10 @@ function request(type, payload = {}, progress) {
     worker.postMessage({ id, type, ...payload });
   });
 }
-function status(id, message, error = false) { $(id).textContent = message; $(id).classList.toggle('error', error); }
+function status(id, message, error = false) {
+  $(id).textContent = message; $(id).classList.toggle('error', error);
+  if (id === 'library-status') { libraryStatusMessage = message; libraryStatusError = error; }
+}
 function beginTrackTransition() {
   const title = document.querySelector('.track-title');
   if (!title) return Promise.resolve(0);
@@ -64,20 +67,31 @@ function finishCoverTransition() {
 function scrollSelectedTrackIntoView() {
   const row = trackRows.get(selected?.id);
   if (!row) return;
-  if (typeof row.scrollIntoViewIfNeeded === 'function') row.scrollIntoViewIfNeeded(false);
-  else row.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  const list = $('tracks'), rowBox = row.getBoundingClientRect(), listBox = list.getBoundingClientRect();
+  if (rowBox.top < listBox.top || rowBox.bottom > listBox.bottom || rowBox.left < listBox.left || rowBox.right > listBox.right) row.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
 }
 function currentPlaybackOrder() { return PLAYBACK_ORDERS.find(order => order.mode === playbackMode) || PLAYBACK_ORDERS[0]; }
 function orderLabel(order = currentPlaybackOrder()) { return t(order.label); }
 function languageSeparator() { return t('directory.separator'); }
 function trackCategory(track) { return track?.kind === 'orchestrion' ? t('library.orchestrion') : t('library.bgm'); }
+function updateLanguageMenu() {
+  const language = getLanguage();
+  document.querySelectorAll('[data-language]').forEach(button => {
+    const active = button.dataset.language === language;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
 function applyLanguage() {
+  const libraryStatus = libraryStatusMessage, libraryError = libraryStatusError;
   applyStaticTranslations();
-  $('language-select').value = getLanguage();
+  updateLanguageMenu();
   updatePlaybackOrder();
   renderTracks();
   renderTrackInfo();
   renderPlayerDetail();
+  $('title').textContent = selected?.title || t('player.continue');
+  if (catalog.length || libraryStatus) status('library-status', libraryStatus, libraryError);
   if (info) renderChannels(info.channels);
   renderState(player.state);
 }
@@ -397,6 +411,7 @@ async function selectTrack(track) {
   const titleTransition = beginTrackTransition();
   $('cover').classList.add('is-changing');
   player.clear(); selected = track; info = null; duration = 0; loading = true;
+  syncLoading();
   renderTracks(); scrollSelectedTrackIntoView(); status('player-status', t('status.decode'));
   // Resume must be requested while the original click has user activation.
   const activated = player.activate();
@@ -557,7 +572,7 @@ function configureLoop(mode, limit) {
 }
 document.querySelectorAll('[data-icon]').forEach(element => setIcon(element, element.dataset.icon));
 updatePlaybackOrder();
-$('language-select').addEventListener('change', () => { setLanguage($('language-select').value); applyLanguage(); });
+document.querySelectorAll('[data-language]').forEach(button => button.addEventListener('click', () => { setLanguage(button.dataset.language); applyLanguage(); $('language-menu').hidePopover?.(); }));
 $('settings-open').addEventListener('click', () => $('settings-menu').showModal());
 $('settings-close').addEventListener('click', () => $('settings-menu').close());
 $('settings-menu').addEventListener('click', event => { if (event.target === $('settings-menu')) { const box = event.target.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) event.target.close(); } });

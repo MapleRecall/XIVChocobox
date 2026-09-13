@@ -89,3 +89,8 @@ dialog,.popover,.channel-button,select,.limit input{border-color:var(--line-stro
 .cover.is-changing{opacity:0;transform:scale(.985)}
 button,.button,input,select{transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease,transform .18s ease}
 @media(prefers-reduced-motion:reduce){button,.button,input,select,.track-title,.cover{transition:none!important}.track-title.is-switching,.cover.is-changing{opacity:1;transform:none}}
+.timeline-visual{z-index:0}
+.timeline.is-loading .loading-shimmer{display:block;z-index:1;opacity:1;animation:loading 1.3s linear infinite;will-change:background-position}
+.language-menu{position:fixed;top:70px;right:32px;bottom:auto;left:auto;width:150px;margin:0;padding:8px;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 20px 50px #0008;color:var(--text)}
+.language-option{display:block;width:100%;padding:9px 11px;border:0;border-radius:6px;background:transparent;color:var(--muted);text-align:left;font-size:14px}
+.language-option:hover:not(:disabled),.language-option.active{background:var(--panel-hover);color:var(--text)}
