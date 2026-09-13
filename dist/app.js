@@ -870,10 +870,13 @@ $('variant-toggle').addEventListener('click', () => {
   const currentVariant = Number.isInteger(player.state.variant) ? player.state.variant + 1 : 1;
   $('variant-status').textContent = t('variant.waiting', { variant: currentVariant });
 });
-for (const id of ['loop-enabled', 'loop-limit']) $(id).addEventListener('change', () => {
+function applyLoopSettings() {
   if (!$('loop-limit').checkValidity()) { $('loop-limit').reportValidity(); $('loop-enabled').checked = loopEnabled; return; }
   configureLoop($('loop-enabled').checked, Number($('loop-limit').value));
-});
+}
+$('loop-enabled').addEventListener('change', applyLoopSettings);
+$('loop-limit').addEventListener('input', () => { if ($('loop-limit').checkValidity()) applyLoopSettings(); });
+$('loop-limit').addEventListener('change', applyLoopSettings);
 try {
   const saved = JSON.parse(localStorage.getItem('xiv-player-preferences'));
   if (saved) {
