@@ -32,6 +32,7 @@ const paths = {
   previous: '<path d="M6 5v14M18 6 9 12l9 6Z"/>',
   next: '<path d="M18 5v14M6 6l9 6-9 6Z"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7.5v.5"/>',
+  filter: '<path d="M4 5h16l-6.5 7.5v5.5l-3 1.5v-7Z"/>',
   order: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   repeat: '<path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/>',
   repeatOne: '<path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3M12 10v6m-2-4 2-2"/>',

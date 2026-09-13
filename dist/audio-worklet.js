@@ -119,8 +119,9 @@ class OrchestrionProcessor extends AudioWorkletProcessor {
       if (fade !== 1) for (let channel = 0; channel < output.length; channel++) output[channel][i] *= fade;
       this.cursor.advance();
     }
-    this.framesSinceUpdate += output[0].length;
-    if (wasPlaying !== this.cursor.playing || previousPass !== this.cursor.pass || variantChanged || this.framesSinceUpdate >= sampleRate / 15) {
+    if (!this.cursor.playing) this.framesSinceUpdate = 0;
+    else this.framesSinceUpdate += output[0].length;
+    if (wasPlaying !== this.cursor.playing || previousPass !== this.cursor.pass || variantChanged || (this.cursor.playing && this.framesSinceUpdate >= sampleRate / 15)) {
       if (this.channels.length) this.report();
       this.framesSinceUpdate = 0;
     }

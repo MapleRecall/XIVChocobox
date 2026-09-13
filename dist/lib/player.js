@@ -22,7 +22,7 @@ export class Player {
     if (!this.context) {
       this.context = new AudioContext({ latencyHint: 'playback' });
       this.gain = this.context.createGain(); this.gain.gain.value = this.volume; this.gain.connect(this.context.destination);
-      this.ready = this.context.audioWorklet.addModule(new URL('../audio-worklet.js?v=20260913-6', import.meta.url));
+      this.ready = this.context.audioWorklet.addModule(new URL('../audio-worklet.js?v=20260913-7', import.meta.url));
       this.context.onstatechange = () => {
         if (this.context.state === 'suspended' && this.state.playing) this.onError('浏览器暂停了音频，请点击播放继续。');
       };

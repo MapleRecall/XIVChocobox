@@ -1,7 +1,7 @@
-import { Player } from './lib/player.js?v=20260913-22';
-import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-29';
+import { Player } from './lib/player.js?v=20260913-23';
+import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-30';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
-import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-31';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-32';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -10,8 +10,9 @@ const pending = new Map();
 let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
 let libraryLabel = '', libraryStatusMessage = '', libraryStatusError = false, metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
-let coverObjectUrl = null, coverRequestId = 0, playerTransitionToken = 0;
+let coverObjectUrl = null, coverRequestId = 0, playerTransitionToken = 0, lastRenderStateKey = '';
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
+const LAST_TRACK_KEY = 'xiv-player-last-track-v1';
 let metadataCache = readMetadataCache(), cacheWriteTimer = null;
 const PLAYBACK_ORDERS = [
   { mode: 'sequential', label: 'playback.sequential', icon: 'order' },
@@ -30,6 +31,7 @@ const BGM_GROUPS = [
 const collapsedBgmGroups = new Set();
 let lastVariant = null, filteredRenderTimer = null, playbackMode = 'sequential', finishHandledTrackId = null;
 let shuffleQueue = [], shufflePosition = -1;
+let restoreLastTrackOnOpen = true;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
   .then(response => { if (!response.ok) throw new Error('Metadata unavailable'); return response.json(); })
   .then(data => data.schemaVersion === 1 ? data.tracks : {}).catch(() => ({}));
@@ -96,10 +98,19 @@ function updateLanguageMenu() {
     button.setAttribute('aria-pressed', String(active));
   });
 }
+function updateFilterToggle() {
+  const button = $('filter-toggle');
+  const active = filter !== 'bgm' || featureFilters.size > 0;
+  const label = t(active ? 'library.filterActive' : 'library.filter');
+  button.classList.toggle('active', active);
+  button.title = label;
+  button.setAttribute('aria-label', label);
+}
 function applyLanguage() {
   const libraryStatus = libraryStatusMessage, libraryError = libraryStatusError;
   applyStaticTranslations();
   updateLanguageMenu();
+  updateFilterToggle();
   updatePlaybackOrder();
   updateVolumeControl();
   renderTracks();
@@ -185,10 +196,22 @@ function setPlaybackMode(mode, announce = true) {
 }
 function visibleTracks() {
   const query = $('search').value.trim().toLocaleLowerCase();
-  const tracks = catalog.filter(track => track.kind === filter
-    && ($('show-debug').checked || !isEmptyAudioTrack(track))
-    && [...featureFilters].every(feature => track.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`])
-    && `${track.title} ${Object.values(track.titleByLocale || {}).join(' ')} ${track.path} ${track.rowId}`.toLocaleLowerCase().includes(query));
+  const tracks = catalog.filter(track => {
+    if (track.kind !== filter || (!$('show-debug').checked && isEmptyAudioTrack(track))) return false;
+    if (![...featureFilters].every(feature => track.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`])) return false;
+    const usage = trackUsage(track, getLanguage());
+    const usageValues = [
+      usage === '-' ? '' : usage,
+      ...Object.values(track.usageByLocale || {}).flatMap(values => Array.isArray(values) ? values : []),
+      ...(Array.isArray(track.uses) ? track.uses : []),
+      ...(Array.isArray(track.dungeons) ? track.dungeons : []),
+      ...(Array.isArray(track.maps) ? track.maps : []),
+      ...(Array.isArray(track.seasonalEvents) ? track.seasonalEvents : []),
+      ...(Array.isArray(track.events) ? track.events : []),
+    ];
+    const searchable = [track.title, ...Object.values(track.titleByLocale || {}), track.path, track.rowId, ...usageValues].join(' ');
+    return searchable.toLocaleLowerCase().includes(query);
+  });
   return tracks;
 }
 function bgmOrderMap() {
@@ -330,6 +353,24 @@ function hydrateMetadataCache() {
     if (cached.codec) track.codec = cached.codec;
   }
 }
+function readLastTrack() {
+  try {
+    const value = JSON.parse(localStorage.getItem(LAST_TRACK_KEY) || 'null');
+    return value && typeof value === 'object' ? value : null;
+  } catch { return null; }
+}
+function persistLastTrack(track) {
+  if (!track) return;
+  try { localStorage.setItem(LAST_TRACK_KEY, JSON.stringify({ id: track.id, kind: track.kind, path: track.path })); } catch {}
+}
+function findLastTrack() {
+  const saved = readLastTrack();
+  if (!saved) return null;
+  const path = String(saved.path || '').toLowerCase();
+  return catalog.find(track => track.available && (!saved.kind || track.kind === saved.kind) && path && track.path.toLowerCase() === path)
+    || catalog.find(track => track.available && track.id === saved.id)
+    || null;
+}
 function trackFormat(track) {
   if (!track.available) return t('track.unavailable');
   if (!track.metadata?.ready) return t('track.loading');
@@ -357,7 +398,7 @@ function buildTrackMetadata(track) {
   const format = document.createElement('span'); format.className = 'track-format'; format.textContent = trackFormat(track); metadata.append(format);
   const ready = Boolean(track.metadata?.ready && !track.metadata.error);
   const loop = document.createElement('span'); loop.className = 'track-icon loop-icon'; loop.textContent = '↻'; loop.title = ready ? (track.metadata.hasLoop ? t('track.hasLoop') : t('track.noLoop')) : t('track.loopLoading'); loop.setAttribute('role', 'img'); loop.setAttribute('aria-label', loop.title); loop.classList.toggle('active', Boolean(ready && track.metadata.hasLoop)); metadata.append(loop);
-  const variant = document.createElement('span'); variant.className = 'track-icon variant-icon'; variant.textContent = '♬'; variant.title = ready ? (track.metadata.hasVariant ? t('track.hasVariant') : t('track.noVariant')) : t('track.variantLoading'); variant.setAttribute('role', 'img'); variant.setAttribute('aria-label', variant.title); variant.classList.toggle('active', Boolean(ready && track.metadata.hasVariant)); metadata.append(variant);
+  const variant = document.createElement('span'); variant.className = 'track-icon variant-icon'; setIcon(variant, 'variant'); variant.title = ready ? (track.metadata.hasVariant ? t('track.hasVariant') : t('track.noVariant')) : t('track.variantLoading'); variant.setAttribute('role', 'img'); variant.setAttribute('aria-label', variant.title); variant.classList.toggle('active', Boolean(ready && track.metadata.hasVariant)); metadata.append(variant);
   return metadata;
 }
 function updateTrackRow(track) {
@@ -480,11 +521,31 @@ async function openDirectory(directory) {
   const result = await request('open', { directory }, message => status('library-status', message));
   presetMetadata = await presetReady;
   catalog = result.tracks.map(cleanTrackTitles); hydrateMetadataCache(); $('search').disabled = false;
+  const restoredTrack = restoreLastTrackOnOpen ? findLastTrack() : null;
+  restoreLastTrackOnOpen = false;
   libraryLabel = `${directory.name} · ${result.repositories.join(languageSeparator())}`;
   $('directory-path').textContent = libraryLabel;
   $('directory-path').title = t('directory.selectedTitle', { label: libraryLabel });
   status('library-status', '');
   startMetadataScan(filter);
+  return restoredTrack;
+}
+async function openDirectoryAndRestore(directory) {
+  const restoredTrack = await openDirectory(directory);
+  if (!restoredTrack) return;
+  if (filter !== restoredTrack.kind) {
+    filter = restoredTrack.kind;
+    document.querySelectorAll('[data-kind]').forEach(button => {
+      const active = button.dataset.kind === filter;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    updateFilterToggle();
+    renderTracks();
+    $('tracks').scrollTop = 0;
+    startMetadataScan(filter);
+  }
+  await selectTrack(restoredTrack, true, false);
 }
 async function chooseDirectory() {
   if (opening) return;
@@ -492,7 +553,7 @@ async function chooseDirectory() {
     const directory = await window.showDirectoryPicker({ mode: 'read', id: 'xiv-sqpack' });
     lastDirectoryHandle = directory;
     try { await saveDirectoryHandle(directory); } catch { /* IndexedDB can be unavailable in private browsing. */ }
-    await openDirectory(directory);
+    await openDirectoryAndRestore(directory);
   } catch (error) {
     if (error.name !== 'AbortError') status('library-status', error.message, true);
   } finally { opening = false; $('directory-select').disabled = !window.showDirectoryPicker; renderTracks(); }
@@ -537,8 +598,9 @@ function resetTrack() {
   renderTrackInfo(); updateNavigationControls();
   renderState({ position: 0, pass: 1, playing: false, finished: false });
 }
-async function selectTrack(track) {
-  if (opening || !track.available) return;
+async function selectTrack(track, allowWhileOpening = false, autoplay = true) {
+  if ((opening && !allowWhileOpening) || !track.available) return;
+  persistLastTrack(track);
   recordShuffleSelection(track);
   const current = ++selection;
   metadataScanId++;
@@ -557,14 +619,14 @@ async function selectTrack(track) {
   resetTrack(); finishTrackTransition(transitionToken);
   const task = decodeQueue.then(async () => {
     await activated;
-    if (current === selection) await loadSelected(track, current);
+    if (current === selection) await loadSelected(track, current, autoplay);
   });
   decodeQueue = task.catch(() => {});
   try { await task; }
   catch (error) { if (current === selection) { loading = false; finishCoverTransition(); status('player-status', error.message, true); } }
   finally { if (current === selection) { syncLoading(); renderState(player.state); startMetadataScan(filter); } }
 }
-async function loadSelected(track, current) {
+async function loadSelected(track, current, autoplay = true) {
   const parsed = await request('track', { path: track.path });
   if (current !== selection) return;
   track.codec = parsed.codec;
@@ -592,7 +654,8 @@ async function loadSelected(track, current) {
   $('metadata').replaceChildren(fragment); $('track-details').hidden = false;
   status('player-status', autoVariant ? t('info.variantStatus') : info.loop ? t('info.loopStatus') : t('info.noLoopStatus'));
   status('player-status', ''); applySettings();
-  renderState(player.state); await player.play();
+  renderState(player.state);
+  if (autoplay) await player.play();
   void loadCover(track, current);
 }
 async function loadCover(track, current) {
@@ -665,7 +728,7 @@ function updateVariantControls(state = player.state) {
   }
   lastVariant = variant;
   const pending = Number.isInteger(state.variantPending);
-  $('variant-status').textContent = pending ? t('variant.pending', { variant: state.variantPending + 1 }) : state.variantTransition ? t('variant.transition', { variant: variant + 1 }) : t('variant.label', { variant: variant + 1 });
+  $('variant-status').textContent = pending ? t('variant.pending', { variant: variant + 1 }) : state.variantTransition ? t('variant.transition', { variant: variant + 1 }) : t('variant.label', { variant: variant + 1 });
 }
 function setAudioSelection(channels, label = '', mode = 'mono') {
   if (!info) throw new Error(t('status.selectTrack'));
@@ -676,6 +739,9 @@ function setAudioSelection(channels, label = '', mode = 'mono') {
   status('player-status', normalized ? t(mode === 'pair' ? 'status.pairListening' : 'status.soloListening', { label: value }) : t('status.fullMix'));
 }
 function renderState(state) {
+  const stateKey = JSON.stringify([state.position, state.pass, state.playing, state.finished, state.loopExited, state.variant, state.variantPending, state.variantTransition, duration, loading, player.limit, info?.codec, info?.channels, info?.sampleRate, info?.loop?.start, info?.loop?.end, autoVariant, player.variantMode, selected?.id, playbackMode, opening, getLanguage()]);
+  if (stateKey === lastRenderStateKey) return;
+  lastRenderStateKey = stateKey;
   if (!dragging) { $('seek').value = String(state.position); $('played').style.width = `${duration ? Math.min(100, state.position / duration * 100) : 0}%`; }
   $('position-current').textContent = time(dragging ? Number($('seek').value) : state.position);
   $('position-total').textContent = time(duration);
@@ -736,7 +802,7 @@ async function handleDirectoryDrop(event) {
     if (handle.requestPermission && await handle.requestPermission({ mode: 'read' }) !== 'granted') throw new Error(t('status.permissionDenied'));
     lastDirectoryHandle = handle;
     try { await saveDirectoryHandle(handle); } catch { /* IndexedDB can be unavailable in private browsing. */ }
-    await openDirectory(handle);
+    await openDirectoryAndRestore(handle);
   } catch (error) { status('library-status', error.message, true); }
   finally { opening = false; $('directory-select').disabled = !window.showDirectoryPicker; renderTracks(); }
 }
@@ -749,14 +815,30 @@ $('search').addEventListener('input', renderTracks);
 document.querySelectorAll('[data-kind]').forEach(button => button.addEventListener('click', () => {
   filter = button.dataset.kind;
   document.querySelectorAll('[data-kind]').forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', String(b === button)); });
-  renderTracks(); $('tracks').scrollTop = 0; startMetadataScan(filter);
+  updateFilterToggle(); renderTracks(); $('tracks').scrollTop = 0; startMetadataScan(filter);
 }));
 document.querySelectorAll('[data-feature]').forEach(button => button.addEventListener('click', () => {
   const feature = button.dataset.feature;
   if (featureFilters.has(feature)) featureFilters.delete(feature); else featureFilters.add(feature);
   button.classList.toggle('active', featureFilters.has(feature)); button.setAttribute('aria-pressed', String(featureFilters.has(feature)));
-  renderTracks(); $('tracks').scrollTop = 0;
+  updateFilterToggle(); renderTracks(); $('tracks').scrollTop = 0;
 }));
+function positionFilterMenu() {
+  const button = $('filter-toggle'), menu = $('filter-menu');
+  const box = button.getBoundingClientRect();
+  const width = Math.min(280, window.innerWidth - 24);
+  const left = Math.max(12, Math.min(window.innerWidth - width - 12, box.right - width));
+  menu.style.width = `${width}px`;
+  menu.style.left = `${left}px`;
+  menu.style.top = `${box.bottom + 8}px`;
+}
+$('filter-toggle').addEventListener('click', () => {
+  const menu = $('filter-menu');
+  if (menu.matches(':popover-open')) menu.hidePopover?.();
+  else { positionFilterMenu(); menu.showPopover?.(); }
+});
+$('filter-menu').addEventListener('toggle', event => $('filter-toggle').setAttribute('aria-expanded', String(event.newState === 'open')));
+window.addEventListener('resize', () => { if ($('filter-menu').matches(':popover-open')) positionFilterMenu(); });
 $('play').addEventListener('click', () => { player.togglePlayback().catch(e => status('player-status', e.message, true)); });
 $('previous').addEventListener('click', () => { const track = adjacentTrack(-1); if (track) void selectTrack(track); });
 $('next').addEventListener('click', () => { const track = adjacentTrack(1); if (track) void selectTrack(track); });
@@ -768,7 +850,11 @@ $('seek').addEventListener('input', () => { dragging = true; renderState(player.
 $('seek').addEventListener('change', () => { dragging = false; player.seek(Number($('seek').value)); });
 $('volume').addEventListener('input', () => { player.setVolume(Number($('volume').value)); updateVolumeControl(); persistPreferences(); });
 $('channel-all').addEventListener('click', () => setAudioSelection(null));
-  $('variant-toggle').addEventListener('click', () => { if (player.requestVariantToggle()) $('variant-status').textContent = t('variant.waiting'); });
+$('variant-toggle').addEventListener('click', () => {
+  if (!player.requestVariantToggle()) return;
+  const currentVariant = Number.isInteger(player.state.variant) ? player.state.variant + 1 : 1;
+  $('variant-status').textContent = t('variant.waiting', { variant: currentVariant });
+});
 for (const id of ['loop-mode', 'loop-limit']) $(id).addEventListener('change', () => {
   if (!$('loop-limit').checkValidity()) { $('loop-limit').reportValidity(); return; }
   configureLoop($('loop-mode').value, Number($('loop-limit').value));
@@ -792,7 +878,7 @@ async function restoreDirectory() {
     if (!handle) return;
     lastDirectoryHandle = handle;
     if (await directoryPermission(handle) === 'granted') {
-      await openDirectory(handle);
+      await openDirectoryAndRestore(handle);
     } else {
       $('directory-path').textContent = t('settings.needsPermission', { name: handle.name });
       $('directory-path').title = t('settings.permissionHint');
