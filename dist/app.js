@@ -29,7 +29,7 @@ const BGM_GROUPS = [
 ];
 const collapsedBgmGroups = new Set();
 let lastVariant = null, filteredRenderTimer = null, playbackMode = 'sequential', finishHandledTrackId = null;
-let shuffleHistory = [], shuffleHistoryIndex = -1;
+let shuffleQueue = [], shufflePosition = -1;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
   .then(response => { if (!response.ok) throw new Error('Metadata unavailable'); return response.json(); })
   .then(data => data.schemaVersion === 1 ? data.tracks : {}).catch(() => ({}));
@@ -141,27 +141,40 @@ function updateVolumeControl() {
   $('volume-toggle').title = label;
   $('volume-toggle').setAttribute('aria-label', label);
 }
-function resetShuffleHistory(track = null) {
-  shuffleHistory = track ? [track.id] : [];
-  shuffleHistoryIndex = track ? 0 : -1;
+function shuffleIds(playlist, avoidFirstId = null) {
+  const ids = playlist.map(track => track.id);
+  for (let index = ids.length - 1; index > 0; index--) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [ids[index], ids[swap]] = [ids[swap], ids[index]];
+  }
+  if (avoidFirstId && ids.length > 1 && ids[0] === avoidFirstId) {
+    const swap = 1 + Math.floor(Math.random() * (ids.length - 1));
+    [ids[0], ids[swap]] = [ids[swap], ids[0]];
+  }
+  return ids;
 }
-function syncShuffleHistory() {
+function resetShuffleQueue(track = null, playlist = playlistTracks()) {
+  if (!track) { shuffleQueue = []; shufflePosition = -1; return; }
+  shuffleQueue = [track.id, ...shuffleIds(playlist.filter(candidate => candidate.id !== track.id))];
+  shufflePosition = 0;
+}
+function syncShuffleQueue() {
   if (playbackMode !== 'shuffle' || !selected) return;
-  if (shuffleHistory[shuffleHistoryIndex] === selected.id) return;
-  const existing = shuffleHistory.lastIndexOf(selected.id);
-  if (existing >= 0) { shuffleHistoryIndex = existing; return; }
-  resetShuffleHistory(selected);
+  if (shuffleQueue[shufflePosition] === selected.id) return;
+  const existing = shuffleQueue.lastIndexOf(selected.id);
+  if (existing >= 0) { shufflePosition = existing; return; }
+  resetShuffleQueue(selected);
 }
 function recordShuffleSelection(track) {
-  if (playbackMode !== 'shuffle' || !track || shuffleHistory[shuffleHistoryIndex] === track.id) return;
-  shuffleHistory = shuffleHistory.slice(0, shuffleHistoryIndex + 1);
-  shuffleHistory.push(track.id); shuffleHistoryIndex = shuffleHistory.length - 1;
+  if (playbackMode !== 'shuffle' || !track || shuffleQueue[shufflePosition] === track.id) return;
+  shuffleQueue = shuffleQueue.slice(0, shufflePosition + 1);
+  shuffleQueue.push(track.id); shufflePosition = shuffleQueue.length - 1;
 }
 function setPlaybackMode(mode, announce = true) {
   if (!PLAYBACK_ORDERS.some(order => order.mode === mode)) return;
   const changed = playbackMode !== mode;
   playbackMode = mode;
-  if (changed) resetShuffleHistory(mode === 'shuffle' ? selected : null);
+  if (changed) resetShuffleQueue(mode === 'shuffle' ? selected : null);
   updatePlaybackOrder();
   persistPreferences();
   if (announce) status('player-status', t('status.orderChanged', { mode: orderLabel() }));
@@ -201,19 +214,33 @@ function isEmptyAudioTrack(track) {
   return Boolean(track.metadata.error || track.metadata.codec === '空资源');
 }
 function playlistTracks() { return visibleTracks().filter(track => track.available); }
-function randomTrack(tracks, currentId) {
-  const choices = tracks.filter(track => track.id !== currentId);
-  return choices[Math.floor(Math.random() * choices.length)] || tracks.find(track => track.id === currentId) || null;
-}
-function shuffleHistoryTrack(playlist, direction) {
-  const step = direction < 0 ? -1 : 1;
-  let index = shuffleHistoryIndex + step;
-  while (index >= 0 && index < shuffleHistory.length) {
-    const track = playlist.find(candidate => candidate.id === shuffleHistory[index]);
-    if (track) { shuffleHistoryIndex = index; return track; }
-    index += step;
+function previousShuffleTrack(playlist) {
+  syncShuffleQueue();
+  for (let index = shufflePosition - 1; index >= 0; index--) {
+    const track = playlist.find(candidate => candidate.id === shuffleQueue[index]);
+    if (track) { shufflePosition = index; return track; }
   }
   return null;
+}
+function nextShuffleTrack(playlist) {
+  syncShuffleQueue();
+  for (let index = shufflePosition + 1; index < shuffleQueue.length; index++) {
+    const track = playlist.find(candidate => candidate.id === shuffleQueue[index]);
+    if (track) { shufflePosition = index; return track; }
+  }
+  shuffleQueue = shuffleQueue.slice(0, shufflePosition + 1);
+  shuffleQueue.push(...shuffleIds(playlist, selected?.id));
+  for (let index = shufflePosition + 1; index < shuffleQueue.length; index++) {
+    const track = playlist.find(candidate => candidate.id === shuffleQueue[index]);
+    if (track) { shufflePosition = index; return track; }
+  }
+  return selected || playlist[0] || null;
+}
+function hasShufflePrevious(playlist) {
+  for (let index = shufflePosition - 1; index >= 0; index--) {
+    if (playlist.some(track => track.id === shuffleQueue[index])) return true;
+  }
+  return false;
 }
 function adjacentTrack(direction = 1, automatic = false) {
   const playlist = playlistTracks();
@@ -221,14 +248,12 @@ function adjacentTrack(direction = 1, automatic = false) {
   if (index < 0 || !playlist.length) return null;
   if (automatic) {
     if (playbackMode === 'repeat-one') return selected;
-    if (playbackMode === 'shuffle') { const next = randomTrack(playlist, selected.id); recordShuffleSelection(next); return next; }
+    if (playbackMode === 'shuffle') return nextShuffleTrack(playlist);
     if (index + 1 < playlist.length) return playlist[index + 1];
     return playbackMode === 'repeat-all' ? playlist[0] : null;
   }
   if (playbackMode === 'shuffle') {
-    syncShuffleHistory();
-    if (direction < 0) return shuffleHistoryTrack(playlist, -1);
-    return shuffleHistoryTrack(playlist, 1) || (() => { const next = randomTrack(playlist, selected.id); recordShuffleSelection(next); return next; })();
+    return direction < 0 ? previousShuffleTrack(playlist) : nextShuffleTrack(playlist);
   }
   const target = index + direction;
   if (target >= 0 && target < playlist.length) return playlist[target];
@@ -239,7 +264,7 @@ function updateNavigationControls() {
   const index = playlist.findIndex(track => track.id === selected?.id);
   const usable = !opening && !loading && index >= 0 && playlist.length > 1;
   const wraps = playbackMode === 'repeat-all' || playbackMode === 'shuffle';
-  $('previous').disabled = !usable || (playbackMode === 'shuffle' ? shuffleHistoryIndex <= 0 : (!wraps && index === 0));
+  $('previous').disabled = !usable || (playbackMode === 'shuffle' ? !hasShufflePrevious(playlist) : (!wraps && index === 0));
   $('next').disabled = !usable || (!wraps && index === playlist.length - 1);
 }
 function handlePlayerState(state) {
@@ -450,7 +475,7 @@ function renderTracks() {
 async function openDirectory(directory) {
   opening = true; $('directory-select').disabled = true;
   metadataScanId++;
-  selection++; player.clear(); selected = null; info = null; duration = 0; loading = false; resetShuffleHistory();
+  selection++; player.clear(); selected = null; info = null; duration = 0; loading = false; resetShuffleQueue();
   resetTrack(); renderTracks();
   const result = await request('open', { directory }, message => status('library-status', message));
   presetMetadata = await presetReady;
