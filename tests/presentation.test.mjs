@@ -17,6 +17,10 @@ test('formats extensible track usage and falls back to a dash', () => {
   assert.equal(trackUsage({ bgmIds: [149] }, 'en'), 'The Praetorium');
   assert.equal(trackUsage({ bgmIds: [149] }, 'ja'), '最終決戦 魔導城プラエトリウム');
 });
+test('metadata summaries ignore sub-half-second loop segments', () => {
+  assert.equal(summarizeMetadata({ duration: 2, totalSamples: 20000, sampleRate: 10000, loop: { start: 6000, end: 10999 } }).hasLoop, false);
+  assert.equal(summarizeMetadata({ duration: 2, totalSamples: 20000, sampleRate: 10000, loop: { start: 6000, end: 11000 } }).hasLoop, true);
+});
 test('preset catalog summaries retain parser loop and variant decisions', async () => {
   const { schemaVersion, tracks } = JSON.parse(await readFile(new URL('../dist/data/track-metadata.json', import.meta.url)));
   assert.equal(schemaVersion, 1);

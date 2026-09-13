@@ -27,6 +27,7 @@ const XOR = Uint8Array.from([
 // would be inaudible and makes the track look falsely looped in the UI.
 export function normalizeLoop(loop, totalSamples, sampleRate) {
   if (!loop || !Number.isFinite(totalSamples) || !Number.isFinite(sampleRate) || sampleRate <= 0) return loop;
+  if ((loop.end - loop.start) / sampleRate < 0.5) return null;
   const intro = loop.start / sampleRate;
   const outro = (totalSamples - loop.end) / sampleRate;
   return intro <= 0.5 && outro <= 0.5 ? null : loop;

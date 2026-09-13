@@ -37,3 +37,55 @@ svg{pointer-events:none}
 .cover{background-color:transparent;border:0;box-shadow:none}
 .timeline-visual{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}
 .played{border-radius:0}
+:root{
+  --bg:#171310;
+  --panel:#241c17;
+  --line:#4a382d;
+  --text:#f3ebe3;
+  --muted:#bba89a;
+  --cyan:#b7c9b6;
+  --panel-raised:#30231c;
+  --panel-hover:#3a2b21;
+  --panel-selected:#3d3025;
+  --timeline:#4c392f;
+  --loop:#806246;
+  --played:#d7bd8e99;
+  --thumb:#fff2d7;
+  --accent-hover:#f5d298;
+  --player-glow:#2f241c;
+  --flash:#fff2d7;
+  --flash-shadow:#b7c9b699;
+  --line-strong:#6a4e3e;
+  --track-border:#36271f;
+  --mark:#f5e5c980;
+  --loading:#eac07999;
+}
+body{background:var(--bg)}
+.player{background:linear-gradient(140deg,var(--player-glow),transparent 70%)}
+.button{background:var(--panel-raised)}
+.button:hover:not(:disabled){background:var(--panel-hover)}
+.language-select,.search input{background:var(--panel)}
+.icon-button:hover:not(:disabled),.feature-filter.active{background:var(--panel-hover)}
+.icon-button.active{background:var(--panel-selected)}
+.track:hover{background:var(--panel)}
+.track.selected{background:var(--panel-selected)}
+.timeline{background:var(--timeline)}
+.loop-band{background:var(--loop)}
+.played{background:var(--played)}
+.timeline input::-webkit-slider-thumb{background:var(--thumb)}
+.loading-shimmer{background:linear-gradient(100deg,transparent 15%,#eac07999 50%,transparent 85%)}
+.switch-flash{background:var(--flash);box-shadow:0 0 18px 5px var(--flash-shadow)}
+.play:hover:not(:disabled){background:var(--accent-hover)}
+.channel-button{background:var(--panel-raised)}
+dialog,.popover{background:var(--panel)}
+select,.limit input{background:var(--bg)}
+.track{border-bottom-color:var(--track-border)}
+dialog,.popover,.channel-button,select,.limit input{border-color:var(--line-strong)}
+.mark{border-left-color:var(--mark)}
+.loading-shimmer{background:linear-gradient(100deg,transparent 15%,var(--loading) 50%,transparent 85%)}
+.track-title{transition:opacity .24s ease,transform .24s ease}
+.track-title.is-switching{opacity:0;transform:translateY(8px)}
+.cover{transition:opacity .28s ease,transform .28s ease}
+.cover.is-changing{opacity:0;transform:scale(.985)}
+button,.button,input,select{transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease,transform .18s ease}
+@media(prefers-reduced-motion:reduce){button,.button,input,select,.track-title,.cover{transition:none!important}.track-title.is-switching,.cover.is-changing{opacity:1;transform:none}}

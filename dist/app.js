@@ -1,16 +1,16 @@
-import { Player } from './lib/player.js?v=20260913-17';
-import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-17';
-import { iconTexturePaths } from './lib/tex.js?v=20260913-17';
-import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-17';
+import { Player } from './lib/player.js?v=20260913-22';
+import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-22';
+import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-22';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
-const worker = new Worker(new URL('./catalog-worker.js', import.meta.url), { type: 'module' });
+const worker = new Worker(new URL('./catalog-worker.js?v=20260913-22', import.meta.url), { type: 'module' });
 const pending = new Map();
 let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
 let libraryLabel = '', metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
 let opening = false, loading = false, decodeQueue = Promise.resolve();
-let coverObjectUrl = null, coverRequestId = 0;
+let coverObjectUrl = null, coverRequestId = 0, playerTransitionTimer = 0;
 const METADATA_CACHE_KEY = 'xiv-player-track-metadata-v2';
 let metadataCache = readMetadataCache(), cacheWriteTimer = null;
 const PLAYBACK_ORDERS = [
@@ -44,6 +44,24 @@ function request(type, payload = {}, progress) {
   });
 }
 function status(id, message, error = false) { $(id).textContent = message; $(id).classList.toggle('error', error); }
+function beginTrackTransition() {
+  const title = document.querySelector('.track-title');
+  if (!title) return;
+  clearTimeout(playerTransitionTimer);
+  title.classList.remove('is-switching');
+  void title.offsetWidth;
+  title.classList.add('is-switching');
+  playerTransitionTimer = setTimeout(() => { title.classList.remove('is-switching'); playerTransitionTimer = 0; }, 260);
+}
+function finishCoverTransition() {
+  requestAnimationFrame(() => $('cover').classList.remove('is-changing'));
+}
+function scrollSelectedTrackIntoView() {
+  const row = trackRows.get(selected?.id);
+  if (!row) return;
+  if (typeof row.scrollIntoViewIfNeeded === 'function') row.scrollIntoViewIfNeeded(false);
+  else row.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+}
 function currentPlaybackOrder() { return PLAYBACK_ORDERS.find(order => order.mode === playbackMode) || PLAYBACK_ORDERS[0]; }
 function orderLabel(order = currentPlaybackOrder()) { return t(order.label); }
 function languageSeparator() { return t('directory.separator'); }
@@ -146,7 +164,6 @@ function handlePlayerState(state) {
 function syncLoading() {
   $('timeline').classList.toggle('is-loading', loading);
   $('timeline').setAttribute('aria-busy', String(loading));
-  $('playback-label').textContent = loading ? t('player.loadingProgress') : t('player.progress');
 }
 function applySettings() {
   document.body.classList.toggle('show-debug', $('show-debug').checked);
@@ -348,6 +365,7 @@ function renderTrackInfo() {
 function resetTrack() {
   lastVariant = null;
   coverRequestId++;
+  $('cover').classList.toggle('is-changing', Boolean(selected));
   if (coverObjectUrl?.startsWith('blob:')) URL.revokeObjectURL(coverObjectUrl);
   coverObjectUrl = null; $('cover').style.removeProperty('background-image'); $('cover').classList.remove('has-image');
   if ($('track-info-menu').open) $('track-info-menu').close();
@@ -371,8 +389,9 @@ async function selectTrack(track) {
   metadataScanId++;
   finishHandledTrackId = null;
   if ($('track-info-menu').open) $('track-info-menu').close();
+  beginTrackTransition();
   player.clear(); selected = track; info = null; duration = 0; loading = true;
-  resetTrack(); renderTracks(); status('player-status', t('status.decode'));
+  resetTrack(); renderTracks(); scrollSelectedTrackIntoView(); status('player-status', t('status.decode'));
   // Resume must be requested while the original click has user activation.
   const activated = player.activate();
   activated.catch(() => {});
@@ -382,7 +401,7 @@ async function selectTrack(track) {
   });
   decodeQueue = task.catch(() => {});
   try { await task; }
-  catch (error) { if (current === selection) { loading = false; status('player-status', error.message, true); } }
+  catch (error) { if (current === selection) { loading = false; finishCoverTransition(); status('player-status', error.message, true); } }
   finally { if (current === selection) { syncLoading(); renderState(player.state); startMetadataScan(filter); } }
 }
 async function loadSelected(track, current) {
@@ -390,7 +409,7 @@ async function loadSelected(track, current) {
   if (current !== selection) return;
   track.codec = parsed.codec;
   applyTrackMetadata(track.path, parsed);
-  if (!parsed.supported) { loading = false; $('codec').textContent = parsed.codec; $('loop-status').textContent = t('status.unsupported'); status('player-status', parsed.reason, true); renderTracks(); return; }
+  if (!parsed.supported) { loading = false; finishCoverTransition(); $('codec').textContent = parsed.codec; $('loop-status').textContent = t('status.unsupported'); status('player-status', parsed.reason, true); renderTracks(); return; }
   const loaded = await player.load(parsed, () => current === selection);
   if (!loaded || current !== selection) return;
   info = parsed; delete info.ogg; delete info.hca; delete info.pcmChannels; delete info.hcaHeader; duration = loaded.duration; loading = false; syncLoading(); renderTrackInfo();
@@ -429,10 +448,11 @@ async function loadCover(track, current) {
       if (current !== selection || requestToken !== coverRequestId || selected !== track) return;
       const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/png');
       if (coverObjectUrl?.startsWith('blob:')) URL.revokeObjectURL(coverObjectUrl);
-      coverObjectUrl = url; $('cover').style.backgroundImage = `url("${url}")`; $('cover').classList.add('has-image'); $('cover').setAttribute('aria-label', t('cover.dungeon', { title: track.title }));
+      coverObjectUrl = url; $('cover').style.backgroundImage = `url("${url}")`; $('cover').classList.add('has-image'); $('cover').setAttribute('aria-label', t('cover.dungeon', { title: track.title })); finishCoverTransition();
       return;
     } catch { /* Missing or unsupported textures fall back to the built-in cover. */ }
   }
+  finishCoverTransition();
 }
 function channelName(index, count) {
   const names = count === 6 ? [t('channel.variantOneLeft'), t('channel.variantTwoLeft'), t('channel.variantOneRight'), t('channel.transitionLeft'), t('channel.variantTwoRight'), t('channel.transitionRight')] : count === 2 ? [t('channel.left'), t('channel.right')] : Array.from({ length: count }, (_, i) => t('channel.number', { number: i + 1 }));
@@ -497,7 +517,8 @@ function setAudioSelection(channels, label = '', mode = 'mono') {
 }
 function renderState(state) {
   if (!dragging) { $('seek').value = String(state.position); $('played').style.width = `${duration ? Math.min(100, state.position / duration * 100) : 0}%`; }
-  $('position-label').textContent = `${time(dragging ? Number($('seek').value) : state.position)} / ${time(duration)}`;
+  $('position-current').textContent = time(dragging ? Number($('seek').value) : state.position);
+  $('position-total').textContent = time(duration);
   const playable = Boolean(info && !loading);
   $('play').disabled = !playable; $('info-toggle').disabled = !playable;
   const playLabel = state.playing ? t('player.pause') : state.finished ? t('player.replay') : t('player.play');

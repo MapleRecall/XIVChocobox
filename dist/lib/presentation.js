@@ -1,4 +1,5 @@
 import { bgmLocations } from './bgm-location-i18n.js';
+import { normalizeLoop } from './scd.js?v=20260913-22';
 
 export function cleanTitle(value = '') {
   return value.split(' / ').map(part => part.replace(/\*+\s*$/, '').trim()).join(' / ');
@@ -13,8 +14,11 @@ export function trackUsage(track, locale = 'zh') {
   return [...new Set(values)].join('、') || '-';
 }
 export function summarizeMetadata(parsed) {
+  const loop = parsed.loop && Number.isFinite(parsed.totalSamples) && Number.isFinite(parsed.sampleRate)
+    ? normalizeLoop(parsed.loop, parsed.totalSamples, parsed.sampleRate)
+    : parsed.loop;
   return { ready: true, duration: Number.isFinite(parsed.duration) ? parsed.duration : null,
-    hasLoop: Boolean(parsed.loop), hasVariant: Boolean(parsed.supported && parsed.channels === 6),
+    hasLoop: Boolean(loop), hasVariant: Boolean(parsed.supported && parsed.channels === 6),
     codec: parsed.codec || null, channels: parsed.channels || 0 };
 }
 const paths = {
