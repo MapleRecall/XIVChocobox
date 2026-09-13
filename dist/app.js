@@ -832,11 +832,7 @@ function positionFilterMenu() {
   menu.style.left = `${left}px`;
   menu.style.top = `${box.bottom + 8}px`;
 }
-$('filter-toggle').addEventListener('click', () => {
-  const menu = $('filter-menu');
-  if (menu.matches(':popover-open')) menu.hidePopover?.();
-  else { positionFilterMenu(); menu.showPopover?.(); }
-});
+$('filter-toggle').addEventListener('click', positionFilterMenu);
 $('filter-menu').addEventListener('toggle', event => $('filter-toggle').setAttribute('aria-expanded', String(event.newState === 'open')));
 window.addEventListener('resize', () => { if ($('filter-menu').matches(':popover-open')) positionFilterMenu(); });
 $('play').addEventListener('click', () => { player.togglePlayback().catch(e => status('player-status', e.message, true)); });
