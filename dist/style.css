@@ -35,4 +35,5 @@ svg{pointer-events:none}
 .drag-active .workspace{outline:1px dashed var(--cyan);outline-offset:-8px}
 .cover{width:100%;max-width:none;aspect-ratio:47 / 15}
 .cover{background-color:transparent;border:0;box-shadow:none}
-.played{border-radius:0 6px 6px 0}
+.timeline-visual{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}
+.played{border-radius:0}
