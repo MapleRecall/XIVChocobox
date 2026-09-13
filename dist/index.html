@@ -31,7 +31,7 @@
   document.title = titles[language];
 })();
 </script>
-<link rel="icon" href="data:,"><link rel="stylesheet" href="./style.css?v=20260913-35">
+<link rel="icon" href="data:,"><link rel="stylesheet" href="./style.css?v=20260913-36">
 </head>
 <body>
 <header class="topbar"><div class="brand"><span aria-hidden="true">♫</span><strong>XIV Chocobox</strong><span class="muted" data-i18n="brand.subtitle">陆行鸟音乐盒</span></div><div class="header-actions"><button id="language-toggle" class="icon-button" popovertarget="language-menu" data-i18n-aria-label="language.label" data-i18n-title="language.label" aria-label="语言" title="语言" data-icon="globe"></button><button id="settings-open" class="icon-button" data-i18n-aria-label="settings" data-i18n-title="settings" data-icon="settings"></button></div></header>
@@ -59,10 +59,9 @@
 <button id="next" class="icon-button" disabled data-i18n-aria-label="player.next" data-i18n-title="player.next" aria-label="下一首" title="下一首" data-icon="next"></button>
 <button id="playback-order" class="icon-button" aria-label="播放顺序：顺序播放" title="播放顺序：顺序播放（点击切换）"><span id="playback-order-icon" data-icon="order" aria-hidden="true"></span></button>
 </div>
-<div class="player-footer"><p id="player-status" class="status" role="status"></p><button id="info-toggle" class="icon-button" disabled data-i18n-aria-label="player.info" data-i18n-title="player.info" aria-label="曲目信息" title="曲目信息" aria-controls="track-info-panel" aria-expanded="false" data-icon="info"></button></div>
-</div><section id="track-info-panel" class="track-info-panel" hidden data-i18n-aria-label="player.info" aria-label="曲目信息"><dl id="info-summary"></dl><details id="track-details" class="debug-only" hidden><summary data-i18n="info.technical">技术信息</summary><span id="codec" class="badge"></span><dl id="metadata"></dl></details></section></section>
+</div><div class="player-footer"><p id="player-status" class="status" role="status"></p><button id="info-toggle" class="icon-button" disabled data-i18n-aria-label="player.info" data-i18n-title="player.info" aria-label="曲目信息" title="曲目信息" aria-controls="track-info-panel" aria-expanded="false" data-icon="info"></button></div><section id="track-info-panel" class="track-info-panel" hidden data-i18n-aria-label="player.info" aria-label="曲目信息"><dl id="info-summary"></dl><details id="track-details" class="debug-only" hidden><summary data-i18n="info.technical">技术信息</summary><span id="codec" class="badge"></span><dl id="metadata"></dl></details></section></section>
 </main>
-<footer><span data-i18n="footer.source">音乐来自你的本地游戏</span><span>v54</span></footer>
+<footer><span data-i18n="footer.source">音乐来自你的本地游戏</span><span>v55</span></footer>
 <div id="loop-menu" class="popover" popover><h3 data-i18n="loop.title">曲内循环</h3><div class="loop-controls"><label><span data-i18n="loop.mode">播放方式</span><select id="loop-mode"><option value="off" data-i18n="loop.off">关闭</option><option value="finite" selected data-i18n="loop.finite">有限次数</option><option value="infinite" data-i18n="loop.infinite">无限循环</option></select></label><label id="limit-label" class="limit"><span data-i18n="loop.limitPrefix">播放</span><input id="loop-limit" type="number" min="1" max="999" step="1" value="3" data-i18n-aria-label="loop.limitAria" aria-label="循环区间播放次数"><span data-i18n="loop.limitSuffix">遍</span></label></div><p class="muted" data-i18n="loop.help">次数包含循环段首次播放，结束后继续尾声。</p><p id="loop-range" class="muted"></p></div>
 <dialog id="settings-menu"><div class="dialog-heading"><h2 data-i18n="settings">设置</h2><button id="settings-close" class="icon-button" data-i18n-aria-label="dialog.close" data-i18n-title="dialog.close" aria-label="关闭" title="关闭" data-icon="close"></button></div>
 <div class="setting-row directory-setting"><span><span data-i18n="settings.directory">资源目录</span><small id="directory-path" data-i18n-title="settings.notSelected" title="尚未选择" data-i18n="settings.notSelected">尚未选择</small></span><button id="directory-select" class="button" data-i18n="settings.chooseAgain">重新选择</button></div>

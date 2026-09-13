@@ -106,7 +106,7 @@ html.i18n-pending body{visibility:hidden}
 .volume-control:hover .volume-popover,.volume-control:focus-within .volume-popover{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0)}
 .volume-slider{display:flex;align-items:center}
 .volume-slider input{width:136px;accent-color:var(--cyan)}
-.player-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:46px;margin-top:4px}
+.player-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;flex:0 0 auto;width:100%;min-height:46px;margin:0;padding:0 max(40px,calc((100% - 670px)/2 + 40px));background:var(--panel)}
 .player-footer .status{flex:1;min-width:0}
 .player-footer #info-toggle{margin-left:auto}
 .track-group-heading{position:sticky;top:0;z-index:4;margin:12px 0 0;padding:0;background:var(--bg);color:var(--accent);font-size:13px;font-weight:600;line-height:22px;letter-spacing:.04em}
