@@ -1,6 +1,6 @@
-# XIV Chocobox
+# XIVChocobox
 
-XIV Chocobox is a local-first browser music player for **FINAL FANTASY XIV**.
+XIVChocobox is a local-first browser music player for **FINAL FANTASY XIV**.
 
 It lets you browse and play game music and Orchestrion rolls directly from a local FFXIV installation. Audio is read and processed in your browser, so your game files stay on your computer.
 
@@ -18,7 +18,7 @@ It lets you browse and play game music and Orchestrion rolls directly from a loc
 
 ### Hosted version
 
-Open the [XIV Chocobox web app](https://xiv-orchestrion-player.maplerecall.chatgpt.site/).
+Open the [XIVChocobox web app](https://xiv-orchestrion-player.maplerecall.chatgpt.site/).
 
 On the first visit, choose one of the following folders:
 
@@ -33,8 +33,8 @@ The browser will ask for read-only access to the selected folder. After access i
 The project is a dependency-free static site. To start a local server:
 
 ```sh
-git clone https://github.com/MapleRecall/XIVOrchestrionWeb.git
-cd XIVOrchestrionWeb
+git clone https://github.com/MapleRecall/XIVChocobox.git
+cd XIVChocobox
 npm run dev
 ```
 
@@ -50,7 +50,7 @@ The repository contains no game audio or extracted game files. They are read fro
 
 ## Privacy
 
-XIV Chocobox does not upload or copy your game files. Music decoding and playback happen locally in the browser. Small preferences and cached track information may be stored in the browser on your device.
+XIVChocobox does not upload or copy your game files. Music decoding and playback happen locally in the browser. Small preferences and cached track information may be stored in the browser on your device.
 
 ## Contributing
 
@@ -64,4 +64,4 @@ This project benefits from publicly available FFXIV resource format research and
 - [vgmstream](https://github.com/vgmstream/vgmstream)
 - [FFXIV datamining research](https://github.com/xivapi/ffxiv-datamining/tree/master/research)
 
-XIV Chocobox is an independent fan project and is not affiliated with or endorsed by SQUARE ENIX.
+XIVChocobox is an independent fan project and is not affiliated with or endorsed by SQUARE ENIX.
