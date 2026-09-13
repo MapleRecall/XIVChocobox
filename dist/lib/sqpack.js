@@ -12,13 +12,13 @@ export class SqPack {
     };
     const findDirectory = (entries, wanted) => entries.find(([name, handle]) => handle.kind === 'directory' && name.toLowerCase() === wanted)?.[1] || null;
     const selectedEntries = await entriesOf(directory), selectedName = String(directory.name || '').toLowerCase();
-    let sqpack = null;
-    if (selectedName === 'game') sqpack = findDirectory(selectedEntries, 'sqpack');
+    let sqpack = selectedName === 'sqpack' ? directory : null;
+    if (!sqpack && selectedName === 'game') sqpack = findDirectory(selectedEntries, 'sqpack');
     if (!sqpack) {
       const game = findDirectory(selectedEntries, 'game');
       if (game) sqpack = findDirectory(await entriesOf(game), 'sqpack');
     }
-    if (!sqpack) throw new Error('请选择游戏根目录或 game 文件夹，程序会自动寻找其中的 game/sqpack。');
+    if (!sqpack) throw new Error('请选择游戏根目录、game 或 sqpack 文件夹，程序会自动寻找可用的 game/sqpack。');
     const files = new Map();
     const collect = async (folder, repository) => {
       for await (const [name, handle] of folder.entries()) {

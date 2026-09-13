@@ -5,7 +5,7 @@
 ## 使用
 
 1. 通过 HTTPS 静态站点或本地 HTTP 服务打开网页。
-2. 首次打开时在“设置”里的“资源目录”点击“重新选择”，选择游戏根目录或 `game` 文件夹；程序会自动寻找其中的 `game/sqpack`，并读取 `ffxiv` 和 `ex1`～`ex5` 等已存在的资料片目录。也可以直接把文件夹拖进页面。
+2. 首次打开时在“设置”里的“资源目录”点击“重新选择”，选择游戏根目录、`game` 或 `sqpack` 文件夹；程序会自动定位 `game/sqpack`，并读取 `ffxiv` 和 `ex1`～`ex5` 等已存在的资料片目录。也可以直接把文件夹拖进页面。
 3. 按管弦乐谱或游戏配乐名称搜索、选择曲目播放。游戏配乐名称按 BGM ID 对照表显示，找不到对照时回退资源名；列表副标题显示曲目的用途信息，没有匹配时显示 `-`，优先使用 BGM 对照表的 `Locations`，再用本机表扫描结果补充。顶栏可在设置旁切换简体中文、English 和日本語。
 4. 列表会逐步显示格式、时长，并用循环/变体图标标出曲目特征；两个图标按钮可筛选有循环或有变体的曲目。这些摘要在后台读取并缓存在浏览器本地，不保存音频。进度条金色区域是原始循环区间，细线是资源中的 MARK。可拖动进度条跳转。
 5. 设置循环段播放 1～999 遍，或无限循环。次数包含循环段首次播放；有限次数结束后继续尾声，然后按播放顺序决定是否切换下一首。
@@ -38,7 +38,7 @@ npm run dev
 每条记录包含 `dungeons`、`uses`、`usageByLocale`、`coverTextureIds` 与 `coverTexturePaths`（并保留单数兼容字段）；曲目选中后会从所选游戏资源读取并解码首个可用 `.tex` 封面。刷新预置数据时会重新生成副本匹配、用途补充，并保留没有自动匹配到的手工封面映射：
 
 ```sh
-npm run export:metadata -- "<游戏根目录或 game 文件夹路径>"
+npm run export:metadata -- "<游戏根目录、game 或 sqpack 文件夹路径>"
 ```
 
 ## GitHub Pages
@@ -67,10 +67,10 @@ npm run export:metadata -- "<游戏根目录或 game 文件夹路径>"
 
 ```sh
 npm test
-npm run verify:game -- "<游戏根目录或 game 文件夹路径>" --all
+npm run verify:game -- "<游戏根目录、game 或 sqpack 文件夹路径>" --all
 ```
 
-`tools/verify-game.mjs` 使用与网页完全相同的解析代码，仅读本地安装。`tools/audio-fixtures.mjs <游戏根目录或 game 文件夹路径>` 是手动验证时才启动的临时回环服务，只提供固定样本，不属于发布目录。`tests/browser-audio.mjs` 和 `tests/browser-variant.mjs` 可在 Chrome 中验证实际 OGG 解码与 AudioWorklet 输出，不会自动播放测试音频。
+`tools/verify-game.mjs` 使用与网页完全相同的解析代码，仅读本地安装。`tools/audio-fixtures.mjs <游戏根目录、game 或 sqpack 文件夹路径>` 是手动验证时才启动的临时回环服务，只提供固定样本，不属于发布目录。`tests/browser-audio.mjs` 和 `tests/browser-variant.mjs` 可在 Chrome 中验证实际 OGG 解码与 AudioWorklet 输出，不会自动播放测试音频。
 
 2026-09-12 本机国服验证：2176 条曲库路径，2174 条可读取（2147 OGG、12 HCA、15 空资源），2 条安装内缺失；OGG 中 1996 条有有效循环信息，35 条有 MARK。Chrome 152 已验证单声道、立体声、六声道和资料片样本的 48 kHz 解码，并通过真实 AudioWorklet 的三遍循环、尾声和停止验证；Node 端已用实际 HCA 曲目完成解码与循环点核查。
 

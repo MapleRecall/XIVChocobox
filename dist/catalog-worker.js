@@ -1,4 +1,4 @@
-import { SqPack } from './lib/sqpack.js';
+import { SqPack } from './lib/sqpack.js?v=20260913-25';
 import { buildCatalog } from './lib/excel.js?v=20260913-24';
 import { parseScd } from './lib/scd.js?v=20260913-22';
 import { decodeHca } from './lib/hca/decode.js';

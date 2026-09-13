@@ -8,7 +8,9 @@ export async function openGame(directory, indexOnly = false) {
   const selectedName = path.basename(directory).toLowerCase();
   const children = await readdir(directory, { withFileTypes: true });
   let sqpack;
-  if (selectedName === 'game') {
+  if (selectedName === 'sqpack') {
+    sqpack = directory;
+  } else if (selectedName === 'game') {
     const entry = children.find(item => item.isDirectory() && item.name.toLowerCase() === 'sqpack');
     if (entry) sqpack = path.join(directory, entry.name);
   } else {
@@ -20,7 +22,7 @@ export async function openGame(directory, indexOnly = false) {
       if (sqpackEntry) sqpack = path.join(game, sqpackEntry.name);
     }
   }
-  if (!sqpack) throw new Error('请选择游戏根目录或 game 文件夹，程序会自动寻找其中的 game/sqpack。');
+  if (!sqpack) throw new Error('请选择游戏根目录、game 或 sqpack 文件夹，程序会自动寻找可用的 game/sqpack。');
   const files = new Map();
   const sqpackEntries = await readdir(sqpack, { withFileTypes: true });
   const repositories = sqpackEntries.filter(e => e.isDirectory() && /^(ffxiv|ex\d+)$/i.test(e.name)).map(e => [e.name.toLowerCase(), path.join(sqpack, e.name)]);

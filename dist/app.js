@@ -1,11 +1,11 @@
 import { Player } from './lib/player.js?v=20260913-24';
 import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-30';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
-import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-36';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-37';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
-const worker = new Worker(new URL('./catalog-worker.js?v=20260913-24', import.meta.url), { type: 'module' });
+const worker = new Worker(new URL('./catalog-worker.js?v=20260913-25', import.meta.url), { type: 'module' });
 const pending = new Map();
 let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false, infoPanelOpen = false, loopEnabled = true, loopCount = 3;
 let libraryLabel = '', libraryStatusMessage = '', libraryStatusError = false, metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;

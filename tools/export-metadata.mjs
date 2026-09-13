@@ -7,7 +7,7 @@ import { BGM_USAGE_OVERRIDES } from '../dist/lib/bgm-locations.js';
 import { bgmLocations } from '../dist/lib/bgm-location-i18n.js';
 
 const [directory, output = 'dist/data/track-metadata.json'] = process.argv.slice(2);
-if (!directory) throw new Error('Usage: node tools/export-metadata.mjs <game-root-or-game-folder> [output.json]');
+if (!directory) throw new Error('Usage: node tools/export-metadata.mjs <game-root-or-game-or-sqpack-folder> [output.json]');
 // Column 45 is ContentFinderCondition.ContentType in the game Excel schema.
 const INSTANCE_BGM_COLUMN = 4, CONDITION_CONTENT_COLUMN = 3, CONDITION_TYPE_COLUMN = 45, CONDITION_NAME_COLUMN = 43, CONDITION_IMAGE_COLUMN = 50;
 const TERRITORY_CONDITION_COLUMN = 10, TERRITORY_BGM_SITUATION_COLUMN = 19, TERRITORY_PLACE_COLUMN = 5, SITUATION_BGM_COLUMNS = [0, 1, 2, 3, 4];

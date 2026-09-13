@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 // Temporary read-only localhost fixture service, never part of dist.
 // Only fixed sample tracks are exposed, and only to the local preview origin.
 const directory = process.argv[2];
-if (!directory) throw new Error('Provide the local game root or game directory.');
+if (!directory) throw new Error('Provide the local game root, game directory, or sqpack directory.');
 const pack = await openGame(directory);
 const tracks = {
   snow: 'music/ffxiv/Orchestrion/BGM_ORCH_001.scd',
