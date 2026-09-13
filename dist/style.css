@@ -111,4 +111,9 @@ html.i18n-pending body{visibility:hidden}
 .player-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:46px;margin-top:4px}
 .player-footer .status{flex:1;min-width:0}
 .player-footer #info-toggle{margin-left:auto}
+.track-group-heading{position:sticky;top:0;z-index:4;margin:12px 0 0;padding:0;background:var(--bg);color:var(--accent);font-size:13px;font-weight:600;line-height:22px;letter-spacing:.04em}
+.track-group-heading:first-child{margin-top:0}
+.track-group-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:7px 10px;border:0;border-bottom:1px solid var(--line);background:var(--bg);color:inherit;font-size:inherit;font-weight:inherit;letter-spacing:inherit;text-align:left}
+.track-group-toggle:hover:not(:disabled){background:var(--panel-hover);color:var(--text)}
+.track-group-caret{font-size:16px;line-height:1;color:var(--muted);transition:transform .18s ease}
 @media(prefers-reduced-motion:reduce){.timeline.is-loading::after{animation:none;background:var(--loading)}}

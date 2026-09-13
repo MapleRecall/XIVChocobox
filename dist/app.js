@@ -1,7 +1,7 @@
 import { Player } from './lib/player.js?v=20260913-22';
 import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-29';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
-import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-30';
+import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-31';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
@@ -19,6 +19,15 @@ const PLAYBACK_ORDERS = [
   { mode: 'repeat-one', label: 'playback.repeatOne', icon: 'repeatOne' },
   { mode: 'shuffle', label: 'playback.shuffle', icon: 'shuffle' },
 ];
+const BGM_GROUPS = [
+  { key: 'base', start: 1, label: 'library.versionBase' },
+  { key: 'ex1', start: 267, label: 'library.version3' },
+  { key: 'ex2', start: 424, label: 'library.version4' },
+  { key: 'ex3', start: 630, label: 'library.version5' },
+  { key: 'ex4', start: 810, label: 'library.version6' },
+  { key: 'ex5', start: 1003, label: 'library.version7' },
+];
+const collapsedBgmGroups = new Set();
 let lastVariant = null, filteredRenderTimer = null, playbackMode = 'sequential', finishHandledTrackId = null;
 const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url))
   .then(response => { if (!response.ok) throw new Error('Metadata unavailable'); return response.json(); })
@@ -149,6 +158,23 @@ function visibleTracks() {
     && [...featureFilters].every(feature => track.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`])
     && `${track.title} ${Object.values(track.titleByLocale || {}).join(' ')} ${track.path} ${track.rowId}`.toLocaleLowerCase().includes(query));
   return tracks;
+}
+function bgmOrderMap() {
+  const positions = new Map();
+  let position = 0;
+  for (const track of catalog) {
+    if (track.kind !== 'bgm') continue;
+    positions.set(track.id, ++position);
+  }
+  return positions;
+}
+function bgmGroupAt(position) {
+  let group = BGM_GROUPS[0];
+  for (const candidate of BGM_GROUPS) {
+    if (position < candidate.start) break;
+    group = candidate;
+  }
+  return group;
 }
 function isEmptyAudioTrack(track) {
   if (!track?.available) return true;
@@ -333,7 +359,31 @@ function renderTracks() {
   const filtered = visibleTracks();
   const fragment = document.createDocumentFragment();
   trackRows = new Map();
+  const bgmPositions = filter === 'bgm' ? bgmOrderMap() : null;
+  let previousGroup = null;
   for (const [index, track] of filtered.entries()) {
+    let group = null;
+    if (filter === 'bgm') {
+      group = bgmGroupAt(bgmPositions.get(track.id) || index + 1);
+      if (group.key !== previousGroup) {
+        const heading = document.createElement('h2');
+        heading.className = 'track-group-heading';
+        const toggle = document.createElement('button');
+        const collapsed = collapsedBgmGroups.has(group.key);
+        const label = t(group.label);
+        toggle.type = 'button'; toggle.className = 'track-group-toggle';
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        toggle.setAttribute('aria-label', collapsed ? t('library.expandGroup', { label }) : t('library.collapseGroup', { label }));
+        toggle.title = toggle.getAttribute('aria-label');
+        const text = document.createElement('span'); text.textContent = label;
+        const caret = document.createElement('span'); caret.className = 'track-group-caret'; caret.setAttribute('aria-hidden', 'true'); caret.textContent = collapsed ? '▸' : '▾';
+        toggle.append(text, caret);
+        toggle.addEventListener('click', () => { if (collapsedBgmGroups.has(group.key)) collapsedBgmGroups.delete(group.key); else collapsedBgmGroups.add(group.key); renderTracks(); });
+        heading.append(toggle); fragment.append(heading);
+        previousGroup = group.key;
+      }
+      if (collapsedBgmGroups.has(group.key)) continue;
+    }
     const button = document.createElement('button');
     button.className = 'track'; button.classList.toggle('selected', selected?.id === track.id);
     button.setAttribute('aria-pressed', String(selected?.id === track.id)); button.disabled = opening || !track.available;
