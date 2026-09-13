@@ -79,7 +79,11 @@ export class Player {
   pause() { this.node?.port.postMessage({ type: 'pause' }); }
   async togglePlayback() { if (this.state.playing) { this.pause(); return false; } await this.play(); return true; }
   async restart() { await this.activate(); this.node?.port.postMessage({ type: 'restart' }); }
-  seek(seconds, pass = 1) { this.node?.port.postMessage({ type: 'seek', position: Math.round(seconds * this.context.sampleRate), pass }); }
+  seek(seconds, pass = null) {
+    const message = { type: 'seek', position: Math.round(seconds * this.context.sampleRate) };
+    if (Number.isInteger(pass) && pass >= 1) message.pass = pass;
+    this.node?.port.postMessage(message);
+  }
   setLimit(limit) { this.limit = limit; this.node?.port.postMessage({ type: 'limit', limit: Number.isFinite(limit) ? limit : null }); }
   setChannel(channel) {
     if (!Number.isInteger(channel) || channel < -1 || channel >= this.channelCount) throw new Error('无效的声道选择。');

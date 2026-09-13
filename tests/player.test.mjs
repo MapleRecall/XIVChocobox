@@ -15,3 +15,14 @@ test('playback toggle sends pause or play from the Worklet state', async () => {
   assert.equal(await player.togglePlayback(), true);
   assert.equal(paused, 1); assert.equal(played, 1);
 });
+
+test('manual seek keeps the current loop pass unless a pass is explicitly supplied', () => {
+  const player = new Player(() => {}, () => {});
+  player.context = { sampleRate: 48000 };
+  let message;
+  player.node = { port: { postMessage(value) { message = value; } } };
+  player.seek(4.25);
+  assert.deepEqual(message, { type: 'seek', position: 204000 });
+  player.seek(4.25, 2);
+  assert.deepEqual(message, { type: 'seek', position: 204000, pass: 2 });
+});
