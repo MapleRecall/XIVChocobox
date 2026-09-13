@@ -1,5 +1,5 @@
 import { SqPack } from './lib/sqpack.js';
-import { buildCatalog } from './lib/excel.js';
+import { buildCatalog } from './lib/excel.js?v=20260913-24';
 import { parseScd } from './lib/scd.js?v=20260913-22';
 import { decodeHca } from './lib/hca/decode.js';
 import { decodeTexture } from './lib/tex.js';

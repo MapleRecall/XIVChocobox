@@ -2,10 +2,16 @@ import { ascii, cstring, requireRange, view } from './binary.js';
 import { BGM_NAMES_EN, BGM_NAMES_ZH } from './bgm-names.js';
 
 const languages = { 0: '', 1: 'ja', 2: 'en', 3: 'de', 4: 'fr', 5: 'chs', 6: 'ko', 7: 'cht' };
+const titleLocales = ['zh', 'en', 'ja'];
 
-function bgmName(id) {
-  const usable = value => value && !['無', '???', 'Null BGM', 'test'].includes(value) ? value : null;
-  return usable(BGM_NAMES_ZH[id]) || usable(BGM_NAMES_EN[id]);
+function bgmName(id, locale = 'zh') {
+  const usable = value => value && !['無', 'None', '???', 'Null BGM', 'test'].includes(value) ? value : null;
+  const primary = locale === 'zh' ? BGM_NAMES_ZH : BGM_NAMES_EN;
+  return usable(primary[id]) || (locale === 'zh' ? usable(BGM_NAMES_EN[id]) : null);
+}
+
+function bgmTitleData(id) {
+  return Object.fromEntries(titleLocales.map(locale => [locale, bgmName(id, locale)]));
 }
 
 export async function readSheet(pack, name) {
@@ -76,15 +82,22 @@ export async function buildCatalog(pack, progress = () => {}) {
   for (const [id, row] of bgm.rows) {
     const path = row[0];
     if (!path || !path.toLowerCase().endsWith('.scd')) continue;
-    const key = path.toLowerCase(), name = bgmName(id);
+    const key = path.toLowerCase(), titleData = bgmTitleData(id), name = titleData.zh;
     if (byPath.has(key)) {
       const track = byPath.get(key); track.bgmIds.push(id);
-      if (name && !track.bgmNames.includes(name)) track.bgmNames.push(name);
-      track.title = track.bgmNames.length ? track.bgmNames.join(' / ') : track.resourceTitle;
+      for (const locale of titleLocales) {
+        const localized = titleData[locale];
+        if (localized && !track.bgmNamesByLocale[locale].includes(localized)) track.bgmNamesByLocale[locale].push(localized);
+        track.titleByLocale[locale] = track.bgmNamesByLocale[locale].join(' / ') || track.resourceTitle;
+      }
+      track.bgmNames = track.bgmNamesByLocale.zh;
+      track.title = track.titleByLocale.zh;
       continue;
     }
     const resourceTitle = path.split('/').pop().replace(/\.scd$/i, '');
-    const track = { id: `bgm:${id}`, rowId: id, bgmIds: [id], bgmNames: name ? [name] : [], kind: 'bgm', title: name || resourceTitle, resourceTitle, description: '', path };
+    const bgmNamesByLocale = Object.fromEntries(titleLocales.map(locale => [locale, titleData[locale] ? [titleData[locale]] : []]));
+    const titleByLocale = Object.fromEntries(titleLocales.map(locale => [locale, titleData[locale] || resourceTitle]));
+    const track = { id: `bgm:${id}`, rowId: id, bgmIds: [id], bgmNames: bgmNamesByLocale.zh, bgmNamesByLocale, titleByLocale, kind: 'bgm', title: titleByLocale.zh, resourceTitle, description: '', path };
     tracks.push(track); byPath.set(path.toLowerCase(), track);
   }
   progress('正在检查曲目是否位于所选目录…');

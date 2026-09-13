@@ -1,11 +1,11 @@
 import { Player } from './lib/player.js?v=20260913-22';
-import { cleanTitle, summarizeMetadata, setIcon, trackUsage } from './lib/presentation.js?v=20260913-22';
+import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-28';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
 import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-22';
 import { directoryPermission, loadDirectoryHandle, saveDirectoryHandle } from './lib/directory-store.js';
 
 const $ = id => document.getElementById(id);
-const worker = new Worker(new URL('./catalog-worker.js?v=20260913-22', import.meta.url), { type: 'module' });
+const worker = new Worker(new URL('./catalog-worker.js?v=20260913-24', import.meta.url), { type: 'module' });
 const pending = new Map();
 let requestId = 0, catalog = [], filter = 'bgm', featureFilters = new Set(), selected = null, info = null, duration = 0, selection = 0, dragging = false, channelSelection = null, autoVariant = false;
 let libraryLabel = '', libraryStatusMessage = '', libraryStatusError = false, metadataScanId = 0, trackRows = new Map(), lastDirectoryHandle = null;
@@ -74,6 +74,10 @@ function currentPlaybackOrder() { return PLAYBACK_ORDERS.find(order => order.mod
 function orderLabel(order = currentPlaybackOrder()) { return t(order.label); }
 function languageSeparator() { return t('directory.separator'); }
 function trackCategory(track) { return track?.kind === 'orchestrion' ? t('library.orchestrion') : t('library.bgm'); }
+function cleanTrackTitles(track) {
+  const titleByLocale = track.titleByLocale ? Object.fromEntries(Object.entries(track.titleByLocale).map(([locale, value]) => [locale, cleanTitle(value)])) : null;
+  return { ...track, title: cleanTitle(track.title), ...(titleByLocale ? { titleByLocale } : {}) };
+}
 function updateLanguageMenu() {
   const language = getLanguage();
   document.querySelectorAll('[data-language]').forEach(button => {
@@ -90,7 +94,7 @@ function applyLanguage() {
   renderTracks();
   renderTrackInfo();
   renderPlayerDetail();
-  $('title').textContent = selected?.title || t('player.continue');
+  $('title').textContent = selected ? trackTitle(selected, getLanguage()) : t('player.continue');
   if (catalog.length || libraryStatus) status('library-status', libraryStatus, libraryError);
   if (info) renderChannels(info.channels);
   renderState(player.state);
@@ -130,7 +134,7 @@ function visibleTracks() {
   return catalog.filter(track => track.kind === filter
     && ($('show-debug').checked || !isEmptyAudioTrack(track))
     && [...featureFilters].every(feature => track.metadata?.[`has${feature[0].toUpperCase()}${feature.slice(1)}`])
-    && `${track.title} ${track.path} ${track.rowId}`.toLocaleLowerCase().includes(query));
+    && `${track.title} ${Object.values(track.titleByLocale || {}).join(' ')} ${track.path} ${track.rowId}`.toLocaleLowerCase().includes(query));
 }
 function isEmptyAudioTrack(track) {
   if (!track?.available) return true;
@@ -321,7 +325,8 @@ function renderTracks() {
     button.setAttribute('aria-pressed', String(selected?.id === track.id)); button.disabled = opening || !track.available;
     const number = document.createElement('span'); number.className = 'track-index'; number.textContent = String(index + 1);
     const content = document.createElement('span'); content.className = 'track-content';
-    const name = document.createElement('span'); name.className = 'track-name'; name.textContent = track.title; name.title = track.title;
+    const displayTitle = trackTitle(track, getLanguage());
+    const name = document.createElement('span'); name.className = 'track-name'; name.textContent = displayTitle; name.title = displayTitle;
     const subtitle = document.createElement('span'); subtitle.className = 'track-subtitle';
     subtitle.textContent = trackSubtitle(track);
     subtitle.title = subtitle.textContent;
@@ -344,7 +349,7 @@ async function openDirectory(directory) {
   resetTrack(); renderTracks();
   const result = await request('open', { directory }, message => status('library-status', message));
   presetMetadata = await presetReady;
-  catalog = result.tracks.map(track => ({ ...track, title: cleanTitle(track.title) })); hydrateMetadataCache(); $('search').disabled = false;
+  catalog = result.tracks.map(cleanTrackTitles); hydrateMetadataCache(); $('search').disabled = false;
   libraryLabel = `${directory.name} · ${result.repositories.join(languageSeparator())}`;
   $('directory-path').textContent = libraryLabel;
   $('directory-path').title = t('directory.selectedTitle', { label: libraryLabel });
@@ -366,7 +371,7 @@ function renderTrackInfo() {
   const track = selected;
   const hasInfo = Boolean(track && info);
   $('info-category').textContent = track ? trackCategory(track) : 'FINAL FANTASY XIV';
-  $('info-title').textContent = track?.title || t('info.title');
+  $('info-title').textContent = track ? trackTitle(track, getLanguage()) : t('info.title');
   $('info-description').textContent = track?.description || (hasInfo ? t('player.localResource') : t('info.description'));
   const rows = hasInfo ? [
     [t('info.duration'), time(duration)],
@@ -390,9 +395,9 @@ function resetTrack() {
   if ($('track-info-menu').open) $('track-info-menu').close();
   $('cover').dataset.textureId = String(selected?.coverTextureId ?? '');
   $('cover').dataset.texturePath = selected?.coverTexturePath ?? '';
-  $('cover').setAttribute('aria-label', selected ? t('cover.track', { title: selected.title }) : t('cover.default'));
+  $('cover').setAttribute('aria-label', selected ? t('cover.track', { title: trackTitle(selected, getLanguage()) }) : t('cover.default'));
   syncLoading();
-  $('title').textContent = selected?.title || t('player.continue');
+  $('title').textContent = selected ? trackTitle(selected, getLanguage()) : t('player.continue');
   renderPlayerDetail();
   $('codec').textContent = t('info.localPlayback'); $('loop-band').hidden = true; $('marks').replaceChildren();
   $('loop-range').textContent = t('loop.rangeSelect'); $('track-details').hidden = true;
@@ -472,7 +477,7 @@ async function loadCover(track, current) {
       if (current !== selection || requestToken !== coverRequestId || selected !== track) return;
       const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/png');
       if (coverObjectUrl?.startsWith('blob:')) URL.revokeObjectURL(coverObjectUrl);
-      coverObjectUrl = url; $('cover').style.backgroundImage = `url("${url}")`; $('cover').classList.add('has-image'); $('cover').setAttribute('aria-label', t('cover.dungeon', { title: track.title })); finishCoverTransition();
+      coverObjectUrl = url; $('cover').style.backgroundImage = `url("${url}")`; $('cover').classList.add('has-image'); $('cover').setAttribute('aria-label', t('cover.dungeon', { title: trackTitle(track, getLanguage()) })); finishCoverTransition();
       return;
     } catch { /* Missing or unsupported textures fall back to the built-in cover. */ }
   }

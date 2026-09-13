@@ -4,6 +4,10 @@ import { normalizeLoop } from './scd.js?v=20260913-22';
 export function cleanTitle(value = '') {
   return value.split(' / ').map(part => part.replace(/\*+\s*$/, '').trim()).join(' / ');
 }
+export function trackTitle(track, locale = 'zh') {
+  const localized = track?.titleByLocale?.[locale];
+  return String(localized || track?.title || track?.resourceTitle || '').trim() || '-';
+}
 const USAGE_FIELDS = ['uses', 'dungeons', 'maps', 'seasonalEvents', 'events'];
 export function trackUsage(track, locale = 'zh') {
   const source = track && typeof track === 'object' ? track : {};

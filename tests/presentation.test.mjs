@@ -1,13 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { cleanTitle, summarizeMetadata, trackUsage } from '../dist/lib/presentation.js';
+import { cleanTitle, summarizeMetadata, trackTitle, trackUsage } from '../dist/lib/presentation.js';
 import { bgmLocation } from '../dist/lib/bgm-location-i18n.js';
 
 test('cleans annotations from each merged title but preserves interior stars', () => {
   assert.equal(cleanTitle('绚烂* / 天界**  '), '绚烂 / 天界');
   assert.equal(cleanTitle('A*B'), 'A*B');
   assert.equal(cleanTitle('星光'), '星光');
+});
+test('uses the selected locale for game BGM titles', () => {
+  const track = { title: '水晶序曲-再诞的辉煌', titleByLocale: { zh: '水晶序曲-再诞的辉煌', en: 'Prelude - Rebirth', ja: 'Prelude - Rebirth' }, resourceTitle: 'BGM_Title' };
+  assert.equal(trackTitle(track, 'zh'), '水晶序曲-再诞的辉煌');
+  assert.equal(trackTitle(track, 'en'), 'Prelude - Rebirth');
+  assert.equal(trackTitle(track, 'ja'), 'Prelude - Rebirth');
+  assert.equal(trackTitle({ title: 'Legacy BGM' }, 'en'), 'Legacy BGM');
 });
 test('formats extensible track usage and falls back to a dash', () => {
   assert.equal(trackUsage({}), '-');
