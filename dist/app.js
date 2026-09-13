@@ -100,7 +100,7 @@ function updateLanguageMenu() {
 }
 function updateFilterToggle() {
   const button = $('filter-toggle');
-  const active = filter !== 'bgm' || featureFilters.size > 0;
+  const active = featureFilters.size > 0;
   const label = t(active ? 'library.filterActive' : 'library.filter');
   button.classList.toggle('active', active);
   button.title = label;
