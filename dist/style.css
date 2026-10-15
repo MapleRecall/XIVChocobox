@@ -149,4 +149,7 @@ html.i18n-pending body{visibility:hidden}
 .loop-count-help{margin:1px 0 0;font-size:11px;line-height:1.5;color:var(--muted)}
 footer{border-top:0}
 .player-content{display:flex;flex-direction:column;justify-content:safe center}
+.audio-spectrum{display:block;flex:0 0 auto;width:calc(100% - 80px);max-width:590px;height:64px;margin:0 auto 8px;color:var(--accent);opacity:.25;pointer-events:none;transition:opacity .25s ease}
+.audio-spectrum.is-playing{opacity:.7}
+@media(prefers-reduced-motion:reduce){.audio-spectrum{transition:none}}
 @media(prefers-reduced-motion:reduce){.loop-menu .loop-switch input,.loop-menu .loop-switch input::after{transition:none}}

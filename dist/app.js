@@ -1,4 +1,5 @@
-import { Player } from './lib/player.js?v=20260913-24';
+import { Player } from './lib/player.js?v=20261016-1';
+import { AudioSpectrum } from './lib/spectrum.js?v=20261016-1';
 import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-30';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
 import { applyStaticTranslations, getLanguage, setLanguage, t } from './lib/i18n.js?v=20260913-37';
@@ -37,6 +38,7 @@ const presetReady = fetch(new URL('./data/track-metadata.json', import.meta.url)
   .then(data => data.schemaVersion === 1 ? data.tracks : {}).catch(() => ({}));
 let presetMetadata = {};
 const player = new Player(handlePlayerState, message => status('player-status', message, true));
+const spectrum = new AudioSpectrum($('audio-spectrum'), () => player.getAnalyser());
 
 worker.onmessage = ({ data }) => {
   const entry = pending.get(data.id);
@@ -292,6 +294,7 @@ function updateNavigationControls() {
   $('next').disabled = !usable || (!wraps && index === playlist.length - 1);
 }
 function handlePlayerState(state) {
+  spectrum.setPlaying(Boolean(state.playing));
   renderState(state);
   if (!state.finished) {
     finishHandledTrackId = null;

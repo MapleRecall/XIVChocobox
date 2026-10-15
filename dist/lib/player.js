@@ -13,7 +13,7 @@ async function resampleChannels(context, channels, sourceRate) {
 export class Player {
   constructor(onState, onError) {
     this.onState = onState; this.onError = onError;
-    this.context = null; this.node = null; this.gain = null;
+    this.context = null; this.node = null; this.gain = null; this.analyser = null;
     this.trackId = 0; this.volume = 0.7; this.limit = 3; this.channelSelection = null; this.channelSelectionMode = 'mono'; this.variantMode = false; this.channelCount = 0;
     this.state = { position: 0, pass: 1, playing: false, finished: false };
     this.channelSelection = null; this.channelSelectionMode = 'mono'; this.variantMode = false; this.channelCount = 0;
@@ -65,6 +65,7 @@ export class Player {
     this.channelCount = channels.length; this.channelSelection = variant ? [0, 2] : null; this.channelSelectionMode = variant ? 'pair' : 'mono'; this.variantMode = Boolean(variant);
     this.node = new AudioWorkletNode(this.context, 'orchestrion-player', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [channels.length] });
     this.node.connect(this.gain);
+    this.node.connect(this.getAnalyser());
     const loadedId = this.trackId;
     this.node.onprocessorerror = () => { if (this.trackId === loadedId) { this.clear(); this.onError('音频处理失败，请重新选择曲目。'); } };
     this.node.port.onmessage = ({ data }) => {
@@ -76,6 +77,18 @@ export class Player {
     return { duration: loadedDuration, sampleRate: rate };
   }
   async play() { await this.activate(); this.node?.port.postMessage({ type: 'play' }); }
+  getAnalyser() {
+    if (!this.context) return null;
+    if (!this.analyser) {
+      this.analyser = this.context.createAnalyser();
+      this.analyser.fftSize = 4096;
+      this.analyser.minDecibels = -90;
+      this.analyser.maxDecibels = -20;
+      this.analyser.smoothingTimeConstant = 0.75;
+      // Analyse the selected audio before the volume control, without changing playback routing.
+    }
+    return this.analyser;
+  }
   pause() { this.node?.port.postMessage({ type: 'pause' }); }
   async togglePlayback() { if (this.state.playing) { this.pause(); return false; } await this.play(); return true; }
   async restart() { await this.activate(); this.node?.port.postMessage({ type: 'restart' }); }
