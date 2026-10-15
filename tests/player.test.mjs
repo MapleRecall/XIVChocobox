@@ -26,3 +26,15 @@ test('manual seek keeps the current loop pass unless a pass is explicitly suppli
   player.seek(4.25, 2);
   assert.deepEqual(message, { type: 'seek', position: 204000, pass: 2 });
 });
+
+test('preparing a restored track completes without waiting for autoplay permission', async () => {
+  const player = new Player(() => {}, () => {});
+  let resumes = 0;
+  player.context = { resume() { resumes++; return new Promise(() => {}); } };
+  player.ready = Promise.resolve();
+  await player.prepare();
+  assert.equal(resumes, 0);
+  // Actual playback requests resume immediately, without awaiting preparation.
+  void player.activate();
+  assert.equal(resumes, 1);
+});

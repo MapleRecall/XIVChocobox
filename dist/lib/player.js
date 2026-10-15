@@ -18,7 +18,7 @@ export class Player {
     this.state = { position: 0, pass: 1, playing: false, finished: false };
     this.channelSelection = null; this.channelSelectionMode = 'mono'; this.variantMode = false; this.channelCount = 0;
   }
-  async activate() {
+  async prepare() {
     if (!this.context) {
       this.context = new AudioContext({ latencyHint: 'playback' });
       this.gain = this.context.createGain(); this.gain.gain.value = this.volume; this.gain.connect(this.context.destination);
@@ -27,8 +27,12 @@ export class Player {
         if (this.context.state === 'suspended' && this.state.playing) this.onError('浏览器暂停了音频，请点击播放继续。');
       };
     }
+    await this.ready;
+  }
+  async activate() {
+    const prepared = this.prepare();
     const resumed = this.context.resume();
-    await Promise.all([resumed, this.ready]);
+    await Promise.all([resumed, prepared]);
   }
   clear() {
     this.trackId++;

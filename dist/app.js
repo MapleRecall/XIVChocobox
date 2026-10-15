@@ -1,4 +1,4 @@
-import { Player } from './lib/player.js?v=20261016-1';
+import { Player } from './lib/player.js?v=20261016-2';
 import { AudioSpectrum } from './lib/spectrum.js?v=20261016-1';
 import { cleanTitle, summarizeMetadata, setIcon, trackTitle, trackUsage } from './lib/presentation.js?v=20260913-30';
 import { iconTexturePaths } from './lib/tex.js?v=20260913-22';
@@ -627,8 +627,9 @@ async function selectTrack(track, allowWhileOpening = false, autoplay = true) {
   player.clear(); selected = track; info = null; duration = 0; loading = true;
   syncLoading();
   renderTracks(); scrollSelectedTrackIntoView(); status('player-status', t('status.decode'));
-  // Resume must be requested while the original click has user activation.
-  const activated = player.activate();
+  // Restoring a paused track must not wait for an autoplay-blocked resume.
+  // Explicit playback still requests resume during the original user gesture.
+  const activated = autoplay ? player.activate() : player.prepare();
   activated.catch(() => {});
   const transitionToken = await titleTransition;
   if (current !== selection) return;
