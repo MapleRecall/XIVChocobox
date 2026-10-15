@@ -18,13 +18,16 @@ test('a 20 dB level change produces a clear height difference without normalizin
   assert.ok(loudPeak < 1, 'normal peaks should retain headroom');
 });
 
-test('a drum transient rises within one frame and decays before the next beat', () => {
+test('a drum transient rises within one frame, falls smoothly, and decays before the next 120 BPM beat', () => {
   const bands = new SpectrumBands(72, 48000, 2048);
   const pulse = tone(-24, 90);
   const onset = peak(bands.update(pulse, 1 / 60));
   const settled = peak(new SpectrumBands(72, 48000, 2048).update(pulse, 1));
   assert.ok(onset > settled * 0.9);
-  const afterBeat = peak(bands.update(tone(-Infinity, 90), 0.2));
+  const silence = tone(-Infinity, 90);
+  const afterTwoFrames = peak(bands.update(silence, 1 / 30));
+  assert.ok(afterTwoFrames > onset * 0.8 && afterTwoFrames < onset * 0.9, 'falling bars should ease down rather than jump');
+  const afterBeat = peak(bands.update(silence, 0.5 - 1 / 30));
   assert.ok(afterBeat < onset * 0.1);
 });
 

@@ -1,5 +1,5 @@
 const ATTACK_SECONDS = 0.006;
-const RELEASE_SECONDS = 0.075;
+const RELEASE_SECONDS = 0.18;
 const NOISE_FLOOR = 10 ** (-78 / 20);
 const DISPLAY_GAIN = 100;
 const DISPLAY_RANGE = Math.log1p(0.15 * DISPLAY_GAIN);

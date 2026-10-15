@@ -1,4 +1,4 @@
-import { SpectrumBands } from './spectrum-bands.js?v=20261016-3';
+import { SpectrumBands } from './spectrum-bands.js?v=20261016-4';
 
 export class AudioSpectrum {
   constructor(canvas, getAnalyser) {
