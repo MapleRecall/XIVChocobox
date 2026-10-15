@@ -85,10 +85,10 @@ export class Player {
     if (!this.context) return null;
     if (!this.analyser) {
       this.analyser = this.context.createAnalyser();
-      this.analyser.fftSize = 4096;
+      this.analyser.fftSize = 2048;
       this.analyser.minDecibels = -90;
       this.analyser.maxDecibels = -20;
-      this.analyser.smoothingTimeConstant = 0.75;
+      this.analyser.smoothingTimeConstant = 0;
       // Analyse the selected audio before the volume control, without changing playback routing.
     }
     return this.analyser;
